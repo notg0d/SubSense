@@ -244,9 +244,9 @@ function WalletGate({ children }: { children: ReactNode }) {
       </AccessContext.Provider>
     );
   return (
-    <div className="ss-login-shell relative isolate min-h-screen bg-secondary p-lg text-primary md:p-3xl">
+    <div className="ss-login-shell relative isolate flex min-h-screen items-center justify-center bg-secondary p-lg text-primary md:p-3xl">
       <LoginBackground paused={chooser || busy} />
-      <main className="relative z-10 mx-auto grid min-h-screen max-w-7xl gap-2xl lg:min-h-0 lg:grid-cols-2">
+      <main className="relative z-10 mx-auto grid w-full max-w-7xl gap-2xl lg:grid-cols-2">
         <section className="ss-login-art hidden lg:flex">
           <div className="ss-orbit" aria-hidden="true" />
           <div className="relative z-10"><Brand inverse /></div>
