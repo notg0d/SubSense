@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import {
-  Download,
   Upload,
   Settings,
   ShieldCheck,
@@ -18,6 +17,7 @@ import type { Workspace } from './workspace';
 import type { Commit } from './ConnectionsView';
 import { Choices } from './forms';
 import { Button, Field, Modal, Notice, fieldClass } from './ui';
+import BackupStatus from './BackupStatus';
 
 export default function SettingsView({
   workspace,
@@ -119,19 +119,8 @@ export default function SettingsView({
         <p className="text-sm text-tertiary">
           Your subscriptions and decisions are saved only in this browser. Download a backup before clearing browser data or switching devices. It contains your financial notes, so keep it private.
         </p>
+        <BackupStatus workspace={workspace} commit={commit} locked={locked || busy} />
         <div className="flex flex-wrap gap-lg">
-          <Button
-            onClick={() => {
-              try {
-                downloadBackup(JSON.stringify(workspace, null, 2));
-              } catch (e) {
-                setError((e as Error).message);
-              }
-            }}
-          >
-            <Download size={16} aria-hidden="true" />
-            Download backup
-          </Button>
           <Button disabled={busy} onClick={() => file.current?.click()}>
             <Upload size={16} aria-hidden="true" />
             Restore backup

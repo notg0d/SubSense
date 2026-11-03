@@ -1,17 +1,17 @@
 import {
-  validateSubscription,
   validateDecision,
   validDate,
   memoryReceipts,
 } from '../../shared/subsense.mjs';
 import type {
-  Subscription,
   Decision,
   Network,
 } from '../../shared/subsense.mjs';
+import { today, validateTrackedSubscription } from './tracking.ts';
+import type { Subscription } from './tracking.ts';
+export type { Subscription } from './tracking.ts';
 
 export type {
-  Subscription,
   Decision,
   Action,
   Value,
@@ -37,6 +37,7 @@ export interface Workspace {
   decisions: Decision[];
   payments: PaymentEvidence[];
   theme: 'light' | 'dark';
+  backup?: { lastDownloadedAt?: string; changes: number; snoozedUntil?: string };
 }
 const KEY = 'subsense_workspace_v1';
 
@@ -58,7 +59,7 @@ export function freshWorkspace(): Workspace {
     subscriptions: [],
     decisions: [],
     payments: [],
-    theme: 'light',
+    theme: 'dark',
   };
 }
 export function validateWorkspace(value: unknown, imported = false): Workspace {
@@ -79,7 +80,7 @@ export function validateWorkspace(value: unknown, imported = false): Workspace {
     v.decisions.length > 2000
   )
     throw new Error('This is not a valid SubSense workspace backup.');
-  const subscriptions = v.subscriptions.map(validateSubscription);
+  const subscriptions = v.subscriptions.map(validateTrackedSubscription);
   if (new Set(subscriptions.map((s) => s.id)).size !== subscriptions.length)
     throw new Error('Duplicate subscription IDs in backup.');
   const decisions = v.decisions.map((raw) => {
@@ -135,6 +136,14 @@ export function validateWorkspace(value: unknown, imported = false): Workspace {
         )
         .slice(0, 200)
         .map((p) => ({ ...p, network: p.network ?? ('mainnet' as const) }));
+  let backup: Workspace['backup'];
+  if (!imported && v.backup) {
+    const b = v.backup;
+    if (!Number.isSafeInteger(b.changes) || b.changes < 0 || b.changes > 1000000 ||
+      (b.lastDownloadedAt !== undefined && (!Number.isFinite(Date.parse(b.lastDownloadedAt)) || new Date(b.lastDownloadedAt).toISOString() !== b.lastDownloadedAt)) ||
+      (b.snoozedUntil !== undefined && !validDate(b.snoozedUntil))) throw new Error('Invalid backup status.');
+    backup = { changes: b.changes, ...(b.lastDownloadedAt ? { lastDownloadedAt: b.lastDownloadedAt } : {}), ...(b.snoozedUntil ? { snoozedUntil: b.snoozedUntil } : {}) };
+  }
   return {
     version: 1,
     profileId: v.profileId,
@@ -143,7 +152,8 @@ export function validateWorkspace(value: unknown, imported = false): Workspace {
     subscriptions,
     decisions,
     payments,
-    theme: v.theme === 'dark' ? 'dark' : 'light',
+    theme: v.theme === 'light' ? 'light' : 'dark',
+    ...(backup ? { backup } : {}),
   };
 }
 
@@ -170,19 +180,32 @@ export function readWorkspace(wallet?: string): {
 export function saveWorkspace(w: Workspace, wallet?: string) {
   localStorage.setItem(workspaceKey(wallet), JSON.stringify(w));
 }
+export function trackWorkspaceChange(previous: Workspace, next: Workspace): Workspace {
+  if (next.subscriptions === previous.subscriptions && next.decisions === previous.decisions && next.payments === previous.payments && next.budgetCents === previous.budgetCents) return next;
+  return { ...next, backup: { ...next.backup, changes: Math.min(1000000, (previous.backup?.changes ?? previous.subscriptions.length + previous.decisions.length) + 1) } };
+}
+export function backupDue(workspace: Workspace, now = new Date()) {
+  if (!workspace.subscriptions.length && !workspace.decisions.length) return false;
+  if (workspace.backup?.snoozedUntil && workspace.backup.snoozedUntil > today(now)) return false;
+  return (workspace.backup?.changes ?? workspace.subscriptions.length + workspace.decisions.length) >= 5 ||
+    Boolean(workspace.backup?.lastDownloadedAt && workspace.backup.changes > 0 && Date.parse(workspace.backup.lastDownloadedAt) < now.getTime() - 30 * 86400000);
+}
 export function rawBackup(wallet?: string) {
   return localStorage.getItem(workspaceKey(wallet)) ?? '{}';
 }
 export function downloadBackup(
   contents: string,
   name = 'subsense-workspace.json',
+  type = 'application/json',
 ) {
   const url = URL.createObjectURL(
-    new Blob([contents], { type: 'application/json' }),
+    new Blob([contents], { type }),
   );
   const a = document.createElement('a');
   a.href = url;
   a.download = name;
+  document.body.append(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

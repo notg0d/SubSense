@@ -50,6 +50,67 @@ Unlike `npm run dev`, this does not expose Vite development filesystem/editor
 routes. Set `PORT` in the server environment if needed. The original AI Builder
 preview continues using the inline Vite middleware configuration.
 
+## Navigation and appearance
+
+Use **Collapse sidebar** below the desktop logo to switch to an icon rail. Hover
+over it or focus its controls with the keyboard to reveal the labels temporarily.
+Choose **Keep expanded** to pin it open again. The compact preference is remembered
+in this browser, and temporary expansion overlays the page without shifting it.
+On mobile, use the bottom navigation and **More** menu.
+
+The SubSense mark appears in the header and browser tab. Sidebar, page, dialog,
+control and chart transitions respect the device's reduced-motion preference.
+The login background has a dense, wide, theme-colored particle ripple behind
+both opaque login cards. It follows mouse movement, then blends into a gently
+drifting, breathing standby animation when the pointer rests or leaves the
+window. It pauses behind the wallet chooser and in hidden tabs; touch devices
+and reduced-motion users get a still field. Dark is the default. The login
+card's sun/moon switch remembers the device's light/dark preference and shares
+it with the dashboard.
+
+## Everyday subscription tools
+
+- **Faster entry:** service-name suggestions fill a category and account link,
+  never a price. **Subscriptions → Import CSV** provides a template, validates
+  every row, shows duplicate names, and requires review before adding records.
+  CSV imports are additive, limited to 200 subscriptions in total, and processed
+  in the browser. Required headers: `name,price,cadence,renewsOn`; prices are USD,
+  cadence is `monthly` or `annual`, and dates use `YYYY-MM-DD`.
+- **Trials and deadlines:** mark a free trial, enter its first paid charge date
+  and future price, and optionally add a cancellation deadline. Budgets include
+  future paid prices. Confirm a trial's first renewal to clear its trial marker.
+- **Calendar reminders:** choose an alert interval in the subscription form and
+  export `.ics` events from Renewals. Import the file into your calendar and check
+  its notification settings. These are one-time events, not background browser
+  notifications or a synced feed. Export again after updating renewal dates and
+  remove obsolete calendar events when dates change. Past dates are skipped.
+- **Follow-through:** “Plan to cancel” and “Cheaper plan” create local follow-ups
+  in Home and Renewals. Open the saved provider-account link, then record the
+  confirmed change in Edit. A saved decision alone does not change billing status.
+- **Actual upcoming bills:** Home and Renewals show the next 30 calendar days of
+  expected charges, including full annual bills and first paid trial charges.
+  Stale past renewal dates must be updated before they can be forecast.
+- **Budget planner:** preview pauses and lower prices without changing saved
+  subscriptions. “Review & record” opens the normal edit form with the proposed
+  change; recording a reduction requires confirmation from the user. The preview
+  is temporary and clears when leaving the page or recording a change.
+- **Cost reductions:** confirmed recurring reductions are measured against the
+  price before a confirmed pause, cancellation or downgrade. They are not cash
+  saved to date; resuming or increasing a plan reduces that figure. Cancelling a
+  free trial does not count as a confirmed saving. Potential future costs avoided
+  are shown separately and cover services suggested for cancellation only.
+- **Contextual reviews:** reuse your previous reason with “Still true,” revise it
+  with “Things changed,” correct usage in place, or snooze the review to a future
+  date. Snoozes surface in the app on return, not as background notifications.
+- **Backup status:** Settings records the last backup download request. A gentle
+  Home reminder appears after five changes, or when a changed backup is over 30
+  days old, and can be snoozed for a week. Check that the downloaded file was saved.
+  Restoring a backup resets this device's download history.
+
+These tools use wallet-scoped browser storage and exported files. Trial details,
+management links, reminders, savings baselines and follow-ups stay out of AI and
+Walrus decision payloads. Online decision memory is not a full workspace backup.
+
 ## Wallet login and Mainnet connections
 
 Wallet login is required. Local subscription tracking works after sign-in even

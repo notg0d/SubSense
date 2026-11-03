@@ -1,10 +1,20 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark" style="color-scheme: dark;">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      try {
+        const theme = localStorage.getItem('subsense_theme');
+        if (theme === 'light' || theme === 'dark') {
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+        }
+      } catch { /* Keep the dark default when browser storage is unavailable. */ }
+    </script>
     <meta name="description" content="Know what you’re paying for, see what’s renewing, and keep the subscriptions that matter. A little clarity, every month." />
     <title>SubSense — a little clarity, every month</title>
+    <link rel="icon" type="image/svg+xml" href="/subsense-mark.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

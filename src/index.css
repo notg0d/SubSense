@@ -17,7 +17,7 @@ body {
 
 @layer components {
   .ss-brand-mark {
-    @apply flex size-10 shrink-0 items-center justify-center rounded-full;
+    @apply block size-10 shrink-0 rounded-full;
     background: var(--ss-mint);
     color: var(--ss-forest);
   }
@@ -36,6 +36,27 @@ body {
     color: var(--ss-on-forest);
   }
   .ss-nav-item[aria-current='page'] { border-color: var(--ss-forest-border); }
+  .ss-nav-label { @apply min-w-0 flex-1 overflow-hidden whitespace-nowrap; }
+  .ss-desktop-sidebar { @apply w-64; scrollbar-width: thin; }
+  .ss-desktop-sidebar[data-expanded='false'] { @apply w-20; }
+  .ss-desktop-sidebar .ss-nav-item { @apply overflow-hidden px-lg-xl; }
+  .ss-sidebar-toggle { border-color: var(--ss-forest-border); }
+  .ss-sidebar-account { @apply min-w-0 overflow-hidden; }
+  .ss-sidebar-brand .ss-brand-wordmark, .ss-sidebar-copy { opacity: 1; }
+  .ss-sidebar-footer-copy { @apply w-48; }
+  .ss-desktop-sidebar[data-expanded='false'] :is(.ss-nav-label, .ss-brand-wordmark, .ss-sidebar-copy) {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .ss-desktop-sidebar[data-expanded='false'] .ss-nav-count { @apply ml-0 w-0 overflow-hidden; opacity: 0; }
+  .ss-desktop-sidebar[data-expanded='false'] .ss-sidebar-account { border-color: transparent; }
+  .ss-header-brand .ss-brand-wordmark { @apply hidden text-sm sm:inline; }
+  @screen lg {
+    .ss-main-shell { @apply ml-64; }
+    .ss-app-shell[data-sidebar-compact='true'] .ss-main-shell { @apply ml-20; }
+    /* Hover reveals an overlay; the page stays still until the mode is toggled. */
+    .ss-app-shell[data-sidebar-compact='true'] .ss-desktop-sidebar[data-expanded='true'] { @apply rounded-r-3xl shadow-xl; }
+  }
   .ss-panel { @apply min-w-0 overflow-hidden rounded-4xl border border-secondary bg-primary; }
   .ss-panel-heading { @apply px-3xl pb-xl pt-3xl; }
   .ss-feature-card {
@@ -88,8 +109,9 @@ body {
     opacity: .6;
   }
   .ss-login-step { @apply flex size-8 shrink-0 items-center justify-center rounded-full border; border-color: var(--ss-forest-border); }
+  .ss-login-background { @apply pointer-events-none fixed inset-0 z-0 h-full w-full; }
   .ss-mobile-tabs { @apply fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-secondary bg-primary px-sm py-md lg:hidden; padding-bottom: max(var(--space-md), env(safe-area-inset-bottom)); }
-  .ss-mobile-tab { @apply flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-xs rounded-xl px-xs text-xs text-tertiary focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50; }
+  .ss-mobile-tab { @apply flex min-h-12 min-w-0 flex-auto flex-col items-center justify-center gap-xs rounded-xl px-xs text-xs text-tertiary focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50; }
   .ss-mobile-tab[aria-current='page'] { @apply bg-utility-brand-50 text-brand-primary; }
 }
 
@@ -103,11 +125,53 @@ body {
   flex-shrink: 0;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  body, .ss-main-shell, .ss-panel, .ss-app-header, .ss-disclosure {
+    transition: background-color var(--ss-motion-base) ease, color var(--ss-motion-base) ease, border-color var(--ss-motion-base) ease;
+  }
+  @screen lg {
+    .ss-main-shell { transition: margin-left var(--ss-motion-layout) var(--ss-ease), background-color var(--ss-motion-base) ease, color var(--ss-motion-base) ease; }
+  }
+  .ss-desktop-sidebar { transition: width var(--ss-motion-layout) var(--ss-ease), box-shadow var(--ss-motion-base) ease, border-radius var(--ss-motion-base) ease; }
+  .ss-desktop-sidebar :is(.ss-nav-label, .ss-brand-wordmark, .ss-sidebar-copy, .ss-nav-count) {
+    transition: opacity var(--ss-motion-fast) ease;
+  }
+  .subsense-button, .subsense-control, .ss-nav-item, .ss-choice, .ss-mobile-tab, .ss-feature-link, .ss-disclosure > summary, .ss-header-brand {
+    transition: background-color var(--ss-motion-fast) ease, color var(--ss-motion-fast) ease, border-color var(--ss-motion-fast) ease, box-shadow var(--ss-motion-fast) ease, transform var(--ss-motion-fast) var(--ss-ease);
+  }
+  .subsense-button:active:not(:disabled), .ss-feature-link:active, .ss-header-brand:active { transform: scale(.97); }
+  .ss-view-enter, .ss-notice { animation: ss-fade-in var(--ss-motion-base) var(--ss-ease); }
+  .ss-modal-backdrop { animation: ss-scrim-in var(--ss-motion-fast) ease; }
+  .ss-modal-panel { animation: ss-dialog-in var(--ss-motion-layout) var(--ss-ease); }
+  .ss-disclosure[open] > .ss-disclosure-body { animation: ss-fade-in var(--ss-motion-base) ease; }
+  [role='progressbar'] > div { transition: width var(--ss-motion-layout) var(--ss-ease), background-color var(--ss-motion-base) ease; }
+  .ss-category-chart circle { transition: stroke-dasharray var(--ss-motion-layout) var(--ss-ease), stroke-dashoffset var(--ss-motion-layout) var(--ss-ease), stroke var(--ss-motion-base) ease; }
+  @media (hover: hover) {
+    .subsense-button:hover:not(:disabled), .ss-feature-link:hover { transform: translateY(calc(-1 * var(--space-xxs))); }
+    .subsense-button:active:not(:disabled), .ss-feature-link:active { transform: scale(.97); }
+  }
+  @supports (interpolate-size: allow-keywords) {
+    .ss-disclosure::details-content {
+      interpolate-size: allow-keywords;
+      block-size: 0;
+      overflow: clip;
+      transition: block-size var(--ss-motion-base) var(--ss-ease), content-visibility var(--ss-motion-base) allow-discrete;
+    }
+    .ss-disclosure[open]::details-content { block-size: auto; }
+  }
+}
+
+@keyframes ss-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ss-scrim-in { from { opacity: 0; } to { opacity: .7; } }
+@keyframes ss-dialog-in {
+  from { opacity: 0; transform: translateY(var(--space-xl)) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .subsense-button,
-  .subsense-choice,
-  .ss-nav-item,
-  .ss-choice {
-    transition: none;
+  body, #root *, #root *::before, #root *::after, .ss-disclosure::details-content {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
   }
 }

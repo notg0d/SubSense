@@ -1,12 +1,12 @@
 import { cloneElement, isValidElement, useEffect, useId, useRef } from 'react';
 import type { ReactNode, ButtonHTMLAttributes } from 'react';
-import { X, Info, Layers, ArrowUpRight } from 'lucide-react';
+import { X, Info, Layers } from 'lucide-react';
 
 export function Brand({ inverse = false }: { inverse?: boolean }) {
   return (
     <span className={`inline-flex items-center gap-lg ${inverse ? 'ss-sidebar-muted' : 'text-primary'}`}>
-      <span className="ss-brand-mark"><ArrowUpRight size={24} strokeWidth={2.5} aria-hidden="true" /></span>
-      <span className="text-xl font-semibold tracking-tight">subsense<span className="text-brand-primary">.</span></span>
+      <img className="ss-brand-mark" src="/subsense-mark.svg" width={40} height={40} alt="" aria-hidden="true" />
+      <span className="ss-brand-wordmark whitespace-nowrap text-xl font-semibold tracking-tight">subsense<span className="text-brand-primary">.</span></span>
     </span>
   );
 }
@@ -65,13 +65,16 @@ export function Field({
   hint?: string;
 }) {
   const hintId = useId();
-  const control = hint && isValidElement<{ 'aria-describedby'?: string }>(children)
-    && ['input', 'select', 'textarea'].includes(String(children.type))
-    ? cloneElement(children, { 'aria-describedby': [children.props['aria-describedby'], hintId].filter(Boolean).join(' ') })
+  const fieldId = useId();
+  const native = isValidElement<{ id?: string; 'aria-describedby'?: string }>(children)
+    && ['input', 'select', 'textarea'].includes(String(children.type));
+  const controlId = native ? children.props.id ?? fieldId : undefined;
+  const control = native
+    ? cloneElement(children, { id: controlId, ...(hint ? { 'aria-describedby': [children.props['aria-describedby'], hintId].filter(Boolean).join(' ') } : {}) })
     : children;
   return (
     <div className="flex flex-col gap-sm text-sm font-medium text-secondary">
-      <label className="flex flex-col gap-sm"><span>{label}</span>{control}</label>
+      {native ? <><label htmlFor={controlId}>{label}</label>{control}</> : <label className="flex flex-col gap-sm"><span>{label}</span>{control}</label>}
       {hint && (
         <span id={hintId} className="text-xs font-regular text-tertiary">{hint}</span>
       )}
@@ -88,7 +91,7 @@ export function Notice({
   return (
     <div
       role={error ? 'alert' : 'status'}
-      className={`flex items-start gap-lg rounded-xl border p-xl text-sm ${error ? 'border-utility-error-200 bg-utility-error-50 text-utility-error-700' : 'border-utility-brand-200 bg-utility-brand-50 text-utility-brand-700'}`}
+      className={`ss-notice flex items-start gap-lg rounded-xl border p-xl text-sm ${error ? 'border-utility-error-200 bg-utility-error-50 text-utility-error-700' : 'border-utility-brand-200 bg-utility-brand-50 text-utility-brand-700'}`}
     >
       <Info size={18} className="shrink-0" aria-hidden="true" />
       <div className="min-w-0 break-words">{children}</div>
@@ -192,7 +195,7 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-xl">
       <div
-        className="absolute inset-0 bg-overlay opacity-70"
+        className="ss-modal-backdrop absolute inset-0 bg-overlay opacity-70"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -202,7 +205,7 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-4xl border border-primary bg-primary shadow-2xl"
+        className="ss-modal-panel relative flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-4xl border border-primary bg-primary shadow-2xl"
       >
         <header className="flex items-start justify-between gap-lg border-b border-secondary p-2xl">
           <div>

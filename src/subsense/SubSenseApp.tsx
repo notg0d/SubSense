@@ -17,6 +17,9 @@ import {
   Unplug,
   LogOut,
   Sparkles,
+  SlidersHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import {
   daysUntil,
@@ -32,12 +35,18 @@ import { checkMemory, uploadDecision, loadConnections } from './api';
 import { shortWallet, useWalletAccess } from './WalletAccess';
 import type { Connections } from './api';
 import type { Decision, Subscription, Workspace } from './workspace';
-import { dateLabel, money, readWorkspace, saveWorkspace } from './workspace';
+import { dateLabel, money, readWorkspace, saveWorkspace, trackWorkspaceChange } from './workspace';
+import { applyTheme, readTheme } from './theme';
 import ConnectionsView from './ConnectionsView';
 import type { Commit } from './ConnectionsView';
 import SettingsView from './SettingsView';
 import OverviewView from './OverviewView';
 import AssistantView from './AssistantView';
+import ImportSubscriptions from './ImportSubscriptions';
+import PlanningView, { BillTimeline } from './PlanningView';
+import BackupStatus from './BackupStatus';
+import RenewalActions, { CalendarButton, ManageLink } from './RenewalActions';
+import { plannedFollowUp, today, validateTrackedSubscription } from './tracking';
 import {
   ReviewForm,
   SubscriptionForm,
@@ -63,8 +72,10 @@ type View =
   | 'renewals'
   | 'journal'
   | 'assistant'
+  | 'planner'
   | 'connections'
   | 'settings';
+// Planning is kept in the existing shell, including the mobile More menu.
 const pages = [
   {
     id: 'overview' as const,
@@ -84,6 +95,12 @@ const pages = [
     label: 'Renewals',
     icon: CalendarClock,
     description: 'See what’s coming up and decide what’s worth keeping.',
+  },
+  {
+    id: 'planner' as const,
+    label: 'Budget planner',
+    icon: SlidersHorizontal,
+    description: 'Explore changes and see what they could save.',
   },
   {
     id: 'journal' as const,
@@ -122,7 +139,10 @@ const renewalLabel = (service: Subscription) => {
 export default function SubSenseApp() {
   const { session, logout } = useWalletAccess();
   const wallet = session.walletAddress!;
-  const [loaded] = useState(() => readWorkspace(wallet));
+  const [loaded] = useState(() => {
+    const saved = readWorkspace(wallet);
+    return { ...saved, workspace: { ...saved.workspace, theme: readTheme(saved.workspace.theme) } };
+  });
   const [workspace, setWorkspace] = useState(loaded.workspace);
   const current = useRef(workspace);
   const [warning, setWarning] = useState(loaded.warning ?? '');
@@ -130,7 +150,24 @@ export default function SubSenseApp() {
   const [error, setError] = useState('');
   const [view, setView] = useState<View>('overview');
   const [mobileNav, setMobileNav] = useState(false);
+  const [sidebarCompact, setSidebarCompact] = useState(() => {
+    try { return localStorage.getItem('subsense_sidebar_compact') === 'true'; }
+    catch { return false; }
+  });
+  const [sidebarPeek, setSidebarPeek] = useState(false);
+  const sidebarExpanded = !sidebarCompact || sidebarPeek;
+  function toggleSidebar() {
+    const compact = !sidebarCompact;
+    setSidebarCompact(compact);
+    // A collapse click takes effect immediately, even while the pointer is inside.
+    // The next pointer entry (or keyboard focus) can reveal the labels again.
+    setSidebarPeek(false);
+    try { localStorage.setItem('subsense_sidebar_compact', String(compact)); }
+    catch { /* The layout still works when browser preference storage is blocked. */ }
+  }
   const [editing, setEditing] = useState<Subscription | 'new'>();
+  const [proposal, setProposal] = useState<Subscription>();
+  const [importing, setImporting] = useState(false);
   const [reviewing, setReviewing] = useState<Subscription>();
   const [uploading, setUploading] = useState<Decision>();
   const [advancing, setAdvancing] = useState<Subscription>();
@@ -147,8 +184,7 @@ export default function SubSenseApp() {
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(0);
   useEffect(() => {
-    document.documentElement.dataset.theme = workspace.theme;
-    document.documentElement.style.colorScheme = workspace.theme;
+    applyTheme(workspace.theme);
   }, [workspace.theme]);
   const commit: Commit = (change) => {
     if (warning) {
@@ -158,7 +194,10 @@ export default function SubSenseApp() {
       return false;
     }
     try {
-      const next = change(current.current);
+      let next = change(current.current);
+      const previous = current.current;
+      if (next.subscriptions !== previous.subscriptions) next = { ...next, subscriptions: next.subscriptions.map(validateTrackedSubscription) };
+      next = trackWorkspaceChange(previous, next);
       if (
         next.subscriptions.length > 200 ||
         next.decisions.length > 2000 ||
@@ -211,7 +250,7 @@ export default function SubSenseApp() {
     a.renewsOn.localeCompare(b.renewsOn),
   );
   const candidates = ordered.filter(
-    (s) => recommend(s, workspace.decisions).action !== 'keep',
+    (s) => (!s.reviewAfter || s.reviewAfter <= today()) && recommend(s, workspace.decisions).action !== 'keep',
   );
   const mainnetCount = new Set(
     workspace.decisions
@@ -244,11 +283,13 @@ export default function SubSenseApp() {
   const recommendation = (s: Subscription) =>
     recommend(s, workspace.decisions, { overBudget: totals.headroom < 0 });
   function reviewSaved(d: Decision) {
-    const ok = commit((w) => ({ ...w, decisions: [d, ...w.decisions] }));
-    if (ok)
+    const ok = commit((w) => ({ ...w, decisions: [d, ...w.decisions], subscriptions: w.subscriptions.map((s) => s.id === d.serviceId ? plannedFollowUp(s, d) : s) }));
+    if (ok) {
+      if (!d.demo && ['cancel', 'downgrade'].includes(d.action)) navigate('renewals');
       setMessage(
         `${d.serviceName}: decision saved ${d.demo ? 'as an example' : 'on this device'}. We’ll remember your reason next time.`,
       );
+    }
     return ok;
   }
   async function remoteDecision(d: Decision, submit: boolean) {
@@ -350,15 +391,17 @@ export default function SubSenseApp() {
             key={p.id}
             disabled={busy}
             onClick={() => navigate(p.id)}
+            aria-label={p.id === 'renewals' && candidates.length ? `${p.label}, ${candidates.length} worth reviewing` : p.label}
+            title={p.label}
             aria-current={view === p.id ? 'page' : undefined}
             className="ss-nav-item"
           >
             <p.icon size={18} className="shrink-0" aria-hidden="true" />
-            <span>{p.label}</span>
+            <span className="ss-nav-label">{p.label}</span>
             {p.id === 'renewals' && candidates.length > 0 && (
               <span
                 aria-label={`${candidates.length} worth reviewing`}
-                className="ml-auto flex size-6 items-center justify-center rounded-full bg-primary text-xs text-brand-primary"
+                className="ss-nav-count ml-auto flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-brand-primary"
               >
                 {candidates.length}
               </span>
@@ -393,17 +436,29 @@ export default function SubSenseApp() {
       </div>
     ) : null;
   return (
-    <div className="ss-sidebar min-h-screen">
+    <div className="ss-app-shell ss-sidebar min-h-screen" data-sidebar-compact={sidebarCompact}>
       <a
         href="#workspace-main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-0 focus:z-50 focus:bg-primary focus:p-xl"
       >
         Skip to content
       </a>
-      <aside className="ss-sidebar fixed inset-y-0 left-0 z-30 hidden w-64 flex-col overflow-y-auto p-2xl lg:flex">
-        <div className="px-md pb-4xl pt-lg">
+      <aside
+        aria-label="Desktop sidebar"
+        className="ss-desktop-sidebar ss-sidebar fixed inset-y-0 left-0 z-30 hidden flex-col overflow-x-hidden overflow-y-auto px-xl py-2xl lg:flex"
+        data-expanded={sidebarExpanded}
+        onPointerEnter={(event) => { if (event.pointerType === 'mouse' && sidebarCompact) setSidebarPeek(true); }}
+        onPointerLeave={(event) => {
+          const focus = document.activeElement;
+          if (!(focus instanceof HTMLElement && event.currentTarget.contains(focus) && focus.matches(':focus-visible'))) setSidebarPeek(false);
+        }}
+        onFocusCapture={(event) => { if (sidebarCompact && event.target.matches(':focus-visible')) setSidebarPeek(true); }}
+        onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget) && !event.currentTarget.matches(':hover')) setSidebarPeek(false); }}
+      >
+        <div className="ss-sidebar-brand px-xs pb-xl pt-lg">
           <a
             href="#overview"
+            aria-label="SubSense home"
             onClick={(e) => {
               e.preventDefault();
               navigate('overview');
@@ -413,11 +468,25 @@ export default function SubSenseApp() {
             <Brand inverse />
           </a>
         </div>
-        <div className="mb-3xl flex items-center gap-lg rounded-2xl border ss-sidebar-rule p-lg"><span className="flex size-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-brand-primary">ME</span><div><p className="text-sm font-medium">My subscriptions</p><p className="mt-xxs text-xs ss-sidebar-muted">Your personal space</p></div></div>
+        <button
+          type="button"
+          className="ss-sidebar-toggle ss-nav-item mb-xl"
+          onClick={toggleSidebar}
+          aria-label={sidebarCompact ? 'Keep sidebar expanded' : 'Collapse sidebar'}
+          title={sidebarCompact ? 'Keep sidebar expanded' : 'Collapse sidebar'}
+          aria-pressed={sidebarCompact}
+          aria-expanded={sidebarExpanded}
+          aria-controls="desktop-sidebar-content"
+        >
+          {sidebarCompact ? <PanelLeftOpen size={18} className="shrink-0" aria-hidden="true" /> : <PanelLeftClose size={18} className="shrink-0" aria-hidden="true" />}
+          <span className="ss-nav-label">{sidebarCompact ? 'Keep expanded' : 'Collapse sidebar'}</span>
+        </button>
+        <div id="desktop-sidebar-content" className="flex min-w-0 flex-1 flex-col">
+        <div className="ss-sidebar-account mb-3xl flex items-center gap-lg rounded-2xl border ss-sidebar-rule px-xs py-lg"><span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-brand-primary">ME</span><div className="ss-sidebar-copy whitespace-nowrap"><p className="text-sm font-medium">My subscriptions</p><p className="mt-xxs text-xs ss-sidebar-muted">Your personal space</p></div></div>
         {navigation(false)}
         <div className="my-3xl border-t ss-sidebar-rule" />
         {navigation(true)}
-        <div className="mt-auto px-lg pt-4xl">
+        <div className="ss-sidebar-footer mt-auto px-lg pt-4xl">
           <div className="border-t ss-sidebar-rule pt-xl">
             <div className="flex items-center gap-sm text-sm font-medium">
               <ShieldCheck
@@ -425,18 +494,19 @@ export default function SubSenseApp() {
                 className="shrink-0"
                 aria-hidden="true"
               />
-              {workspace.sample
-                 ? 'Example workspace'
-                 : 'You’re in control'}
+              <span className="ss-sidebar-copy whitespace-nowrap">{workspace.sample
+                  ? 'Example workspace'
+                  : 'You’re in control'}</span>
             </div>
-            <p className="mt-sm text-xs ss-sidebar-muted">No automatic payments or cancellations.</p>
-            <p className="mt-xl text-xs ss-sidebar-muted">A little clarity. Every month.</p>
+            <div className="ss-sidebar-copy ss-sidebar-footer-copy"><p className="mt-sm text-xs ss-sidebar-muted">No automatic payments or cancellations.</p>
+            <p className="mt-xl text-xs ss-sidebar-muted">A little clarity. Every month.</p></div>
           </div>
         </div>
+        </div>
       </aside>
-      <div className="min-h-screen bg-secondary pb-7xl text-primary lg:ml-64 lg:rounded-tl-4xl lg:pb-0">
-        <header className="flex items-center justify-between gap-lg px-xl py-xl md:px-3xl lg:px-4xl">
-          <div className="flex items-center gap-md">
+      <div className="ss-main-shell min-h-screen bg-secondary pb-7xl text-primary lg:rounded-tl-4xl lg:pb-0">
+        <header className="ss-app-header flex items-center justify-between gap-lg px-xl py-xl md:px-3xl lg:px-4xl">
+          <div className="flex min-w-0 items-center gap-md">
             <Button
               variant="quiet"
               className="lg:hidden"
@@ -446,8 +516,8 @@ export default function SubSenseApp() {
             >
               <Menu size={20} aria-hidden="true" />
             </Button>
-            <span className="text-sm font-medium text-secondary lg:hidden">SubSense</span>
-            <span className="hidden text-xs text-tertiary lg:inline">My space <span className="mx-md">/</span> <span className="text-secondary">{selectedPage.label}</span></span>
+            <a href="#overview" aria-label="SubSense home" className="ss-header-brand shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring" onClick={(event) => { event.preventDefault(); navigate('overview'); }}><Brand /></a>
+            <span className="hidden min-w-0 truncate text-xs text-tertiary lg:inline"><span className="mx-md">/</span> <span className="text-secondary">{selectedPage.label}</span></span>
           </div>
           <div className="flex items-center gap-md">
             <span className="hidden items-center gap-sm text-xs text-tertiary md:flex"><ShieldCheck size={15} aria-hidden="true" />Saved on this device</span>
@@ -487,8 +557,9 @@ export default function SubSenseApp() {
           </div>
         </header>
         <main
+          key={view}
           id="workspace-main"
-          className="mx-auto max-w-7xl space-y-2xl px-xl pb-3xl pt-lg md:px-3xl lg:px-4xl"
+          className="ss-view-enter mx-auto max-w-7xl space-y-2xl px-xl pb-3xl pt-lg md:px-3xl lg:px-4xl"
         >
           <div className="flex flex-col justify-between gap-xl sm:flex-row sm:items-center">
             <div>
@@ -501,6 +572,8 @@ export default function SubSenseApp() {
               </p>
             </div>
             {['overview', 'subscriptions', 'renewals'].includes(view) && (
+              <div className="flex flex-wrap items-center gap-md">
+              {view === 'subscriptions' && <Button disabled={Boolean(warning) || busy} onClick={() => setImporting(true)}>Import CSV</Button>}
               <Button
                 disabled={Boolean(warning) || busy}
                 variant="primary"
@@ -509,6 +582,7 @@ export default function SubSenseApp() {
                 <Plus size={18} aria-hidden="true" />
                 Add subscription
               </Button>
+              </div>
             )}
           </div>
           {warning && (
@@ -541,6 +615,7 @@ export default function SubSenseApp() {
           )}
           {error && <Notice error>{error}</Notice>}
           {message && <Notice>{message}</Notice>}
+          {view === 'overview' && <><BackupStatus compact workspace={workspace} commit={commit} locked={Boolean(warning) || busy} /><RenewalActions workspace={workspace} commit={commit} locked={Boolean(warning) || busy} onEdit={setEditing} onReview={setReviewing} /></>}
           {view === 'overview' && (
             <OverviewView
               workspace={workspace}
@@ -666,7 +741,7 @@ export default function SubSenseApp() {
                                   s.status === 'active' ? 'success' : 'gray'
                                 }
                               >
-                                {s.status}
+                                {s.status === 'active' && s.trialEndsOn ? 'Free trial' : s.status}
                               </Badge>
                               {s.importance === 'essential' && (
                                 <ShieldCheck
@@ -727,6 +802,8 @@ export default function SubSenseApp() {
           {view === 'renewals' &&
             (ordered.length ? (
               <div className="space-y-2xl">
+                <RenewalActions workspace={workspace} commit={commit} locked={Boolean(warning) || busy} onEdit={setEditing} onReview={setReviewing} />
+                <BillTimeline subscriptions={workspace.subscriptions} />
                 <div className="flex flex-wrap items-center justify-between gap-lg rounded-xl border border-primary bg-secondary p-2xl">
                   <div>
                     <p className="text-sm font-semibold">
@@ -739,6 +816,7 @@ export default function SubSenseApp() {
                   <Badge tone={candidates.length ? 'warning' : 'gray'}>
                     {candidates.length} worth reviewing
                   </Badge>
+                  <CalendarButton subscriptions={active} profileId={workspace.profileId} />
                 </div>
                 {ordered.map((s) => {
                   const r = recommendation(s);
@@ -775,6 +853,9 @@ export default function SubSenseApp() {
                           You told us: “{r.evidence[0].reason}”
                         </blockquote>
                       )}
+                      {s.reviewAfter && <p className="mt-lg text-xs text-tertiary">Review again on {dateLabel(s.reviewAfter)}{s.reviewAfter <= today() ? ' · Ready now' : ' · Snoozed'}</p>}
+                      <div className="mt-xl flex flex-wrap items-start gap-lg"><CalendarButton subscriptions={[s]} profileId={workspace.profileId} /><ManageLink service={s} /><Button disabled={Boolean(warning)} onClick={() => setEditing(s)}>Edit details</Button></div>
+                      <p className="mt-md text-xs text-tertiary">Calendar alert: {(s.reminderDays ?? 3) === 0 ? 'on the day' : `${s.reminderDays ?? 3} days before`}. Import the file to enable reminders in your calendar.</p>
                       {daysUntil(s.renewsOn) <= 0 && (
                         <Button
                           className="mt-xl"
@@ -967,6 +1048,7 @@ export default function SubSenseApp() {
               onConfig={setConnections}
             />
           )}
+          {view === 'planner' && <PlanningView key={JSON.stringify(workspace.subscriptions)} workspace={workspace} locked={Boolean(warning) || busy} onEdit={(service, draft) => { setEditing(service); setProposal(draft); }} />}
           {view === 'assistant' && (
             <AssistantView workspace={workspace} connections={connections}
               locked={Boolean(warning)} onBusy={setBusy} onConnections={() => navigate('connections')} />
@@ -999,12 +1081,13 @@ export default function SubSenseApp() {
       )}
       <nav className="ss-mobile-tabs" aria-label="Mobile navigation">
         {pages.filter((p) => ['overview', 'subscriptions', 'renewals', 'assistant'].includes(p.id)).map((p) => <button key={p.id} className="ss-mobile-tab" aria-current={view === p.id ? 'page' : undefined} disabled={busy} onClick={() => navigate(p.id)}><p.icon size={19} aria-hidden="true" /><span>{p.id === 'renewals' ? 'Renewals' : p.id === 'assistant' ? 'Assistant' : p.label}</span></button>)}
-        <button className="ss-mobile-tab" aria-label="More pages" aria-expanded={mobileNav} disabled={busy} onClick={() => setMobileNav(true)}><Menu size={19} aria-hidden="true" /><span>More</span></button>
+        <button className="ss-mobile-tab" aria-label="More pages" aria-current={['planner', 'journal', 'connections', 'settings'].includes(view) ? 'page' : undefined} aria-expanded={mobileNav} disabled={busy} onClick={() => setMobileNav(true)}><Menu size={19} aria-hidden="true" /><span>More</span></button>
       </nav>
       {editing && (
         <SubscriptionForm
           service={editing === 'new' ? undefined : editing}
-          onClose={() => setEditing(undefined)}
+          proposal={proposal}
+          onClose={() => { setEditing(undefined); setProposal(undefined); }}
           onSave={(s) => {
             const ok = commit((w) => ({
               ...w,
@@ -1017,6 +1100,11 @@ export default function SubSenseApp() {
           }}
         />
       )}
+      {importing && <ImportSubscriptions existing={workspace.subscriptions} onClose={() => setImporting(false)} onImport={(subscriptions) => {
+        const ok = commit((w) => ({ ...w, subscriptions: [...w.subscriptions, ...subscriptions] }));
+        if (ok) { setPage(0); setSearch(''); setStatus('all'); setMessage(`${subscriptions.length} subscriptions imported.`); }
+        return ok;
+      }} />}
       {reviewing && (
         <ReviewForm
           service={reviewing}
@@ -1024,6 +1112,10 @@ export default function SubSenseApp() {
           sample={workspace.sample}
           onClose={() => setReviewing(undefined)}
           onSave={reviewSaved}
+          onUsage={(usage) => {
+            if (commit((w) => ({ ...w, subscriptions: w.subscriptions.map((s) => s.id === reviewing.id ? { ...s, usage } : s) }))) setReviewing((old) => old ? { ...old, usage } : old);
+          }}
+          onSnooze={(date) => commit((w) => ({ ...w, subscriptions: w.subscriptions.map((s) => s.id === reviewing.id ? { ...s, reviewAfter: date } : s) }))}
         />
       )}
       {uploading && (
@@ -1084,6 +1176,8 @@ export default function SubSenseApp() {
                           ? {
                               ...s,
                               renewsOn: nextRenewal(s.renewsOn, s.cadence),
+                              trialEndsOn: undefined,
+                              cancellationDeadline: undefined,
                             }
                           : s,
                       ),

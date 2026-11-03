@@ -4,6 +4,7 @@ import { api } from './api';
 import type { Connections } from './api';
 import type { Workspace } from './workspace';
 import { money } from './workspace';
+import { validateSubscription } from '../../shared/subsense.mjs';
 import { useWalletAccess } from './WalletAccess';
 import { Choices } from './forms';
 import { Badge, Button, Field, Notice, SectionHeading, fieldClass } from './ui';
@@ -54,7 +55,7 @@ export default function AssistantView({ workspace, connections, locked, onBusy, 
     try {
       const response = await api<AIResult>('/ai/run', {
         network: 'mainnet', mode, query, consent, allowDataCollection, budgetCents: workspace.budgetCents,
-        subscriptions: workspace.subscriptions.filter((s) => activeIds.has(`subscription:${s.id}`)),
+        subscriptions: workspace.subscriptions.filter((s) => activeIds.has(`subscription:${s.id}`)).map(validateSubscription),
         decisions: workspace.decisions.filter((d) => !d.demo && activeIds.has(`decision:${d.id}`)),
       }, { wallet, signal: controller.signal });
       if (!controller.signal.aborted) setResult(response);

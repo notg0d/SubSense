@@ -1,6 +1,11 @@
 /* SubSense's Emerald24-inspired brand. Keep the generated Tatum foundation
    untouched; these app-owned semantic aliases retain its geometry and states. */
 :root {
+  /* App-owned motion roles, shared by navigation, controls and overlays. */
+  --ss-motion-fast: 160ms;
+  --ss-motion-base: 240ms;
+  --ss-motion-layout: 320ms;
+  --ss-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --color-text-primary: #182b25;
   --color-text-secondary: #40554d;
   --color-text-tertiary: #62736b;

@@ -3,7 +3,8 @@ import type { FormEvent } from 'react';
 import {
   CATEGORIES,
   dollarsToCents,
-  validateSubscription,
+  monthlyCents,
+  validDate,
   validateDecision,
 } from '../../shared/subsense.mjs';
 import type {
@@ -14,6 +15,7 @@ import type {
   Value,
 } from './workspace';
 import { money } from './workspace';
+import { addDays, isReduction, recordSubscriptionChange, reminderOptions, SERVICE_PRESETS, today } from './tracking';
 import { Badge, Button, Field, Modal, Notice, fieldClass } from './ui';
 
 export const actionLabels: Record<Action, string> = {
@@ -70,22 +72,20 @@ export function Choices<T extends string>({
   );
 }
 
-const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
 export function SubscriptionForm({
   service,
+  proposal,
   onSave,
   onClose,
 }: {
   service?: Subscription;
+  proposal?: Subscription;
   onSave: (s: Subscription) => boolean;
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState<Subscription>(
     () =>
-      service ?? {
+      proposal ?? service ?? {
         id: crypto.randomUUID(),
         name: '',
         category: 'Productivity',
@@ -95,19 +95,22 @@ export function SubscriptionForm({
         usage: 'occasional',
         importance: 'useful',
         status: 'active',
-        workRelated: true,
+        workRelated: false,
         notes: '',
       },
   );
   const [price, setPrice] = useState(
-    service ? (service.costCents / 100).toFixed(2) : '',
+    proposal || service ? ((proposal ?? service)!.costCents / 100).toFixed(2) : '',
   );
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState('');
+  const serviceList = useId();
+  let reducesCost = false;
+  try { reducesCost = Boolean(service && isReduction(service, { ...draft, costCents: dollarsToCents(price) })); } catch { /* Price errors are shown on submit. */ }
   const change = <K extends keyof Subscription>(
     key: K,
     value: Subscription[K],
-  ) => setDraft((d) => ({ ...d, [key]: value }));
+  ) => { setConfirmed(false); setDraft((d) => ({ ...d, [key]: value })); };
   function submit(e: FormEvent) {
     e.preventDefault();
     setError('');
@@ -120,10 +123,10 @@ export function SubscriptionForm({
         throw new Error(
           'Confirm cancellation with your provider before changing the status.',
         );
-      const result = validateSubscription({
+      const result = recordSubscriptionChange(service, {
         ...draft,
         costCents: dollarsToCents(price),
-      });
+      }, confirmed);
       if (onSave(result)) onClose();
     } catch (err) {
       setError((err as Error).message);
@@ -139,14 +142,21 @@ export function SubscriptionForm({
         <Field label="Service name">
           <input
             autoComplete="off"
+            list={serviceList}
             className={fieldClass}
             required
             maxLength={80}
             value={draft.name}
-            onChange={(e) => change('name', e.target.value)}
+            onChange={(e) => {
+              const name = e.target.value;
+              const preset = SERVICE_PRESETS.find((p) => p.name.toLowerCase() === name.toLowerCase());
+              setDraft((d) => ({ ...d, name, ...(preset ? { category: preset.category, manageUrl: preset.manageUrl } : {}) }));
+            }}
             placeholder="e.g. Adobe Creative Cloud"
           />
         </Field>
+        <datalist id={serviceList}>{SERVICE_PRESETS.map((p) => <option key={p.name} value={p.name} />)}</datalist>
+        {!service && <p className="text-xs text-tertiary">Choose a familiar service or type your own. Enter the price and dates from your account.</p>}
         <div className="grid gap-xl sm:grid-cols-2">
           <Field label="Category">
             <select
@@ -161,13 +171,13 @@ export function SubscriptionForm({
               ))}
             </select>
           </Field>
-          <Field label="Price (USD)">
+          <Field label={draft.trialEndsOn ? 'Price after trial (USD)' : 'Price (USD)'}>
             <input
               className={fieldClass}
               inputMode="decimal"
               required
               value={price}
-              onChange={(e) => setPrice(e.target.value)}
+              onChange={(e) => { setPrice(e.target.value); setConfirmed(false); }}
               placeholder="19.99"
             />
           </Field>
@@ -181,8 +191,9 @@ export function SubscriptionForm({
           ]}
           onChange={(v) => change('cadence', v)}
         />
+        <label className="flex items-center gap-md text-sm text-secondary"><input type="checkbox" className="subsense-choice size-4 focus-visible:ring-2 focus-visible:ring-focus-ring" checked={Boolean(draft.trialEndsOn)} onChange={(e) => change('trialEndsOn', e.target.checked ? draft.renewsOn : undefined)} />This is a free trial</label>
         <Field
-          label="Next renewal date"
+          label={draft.trialEndsOn ? 'Trial ends / first paid charge' : 'Next renewal date'}
           hint="Check your account with the service for the next billing date."
         >
           <input
@@ -190,9 +201,15 @@ export function SubscriptionForm({
             className={fieldClass}
             required
             value={draft.renewsOn}
-            onChange={(e) => change('renewsOn', e.target.value)}
+            onChange={(e) => setDraft((d) => ({ ...d, renewsOn: e.target.value, trialEndsOn: d.trialEndsOn ? e.target.value : undefined }))}
           />
         </Field>
+        {draft.trialEndsOn && <p className="text-xs text-tertiary">The budget includes the future paid price. Confirm the first charge date with your provider.</p>}
+        <details className="ss-disclosure" open={draft.trialEndsOn ? true : undefined}><summary>Reminders & account link</summary><div className="ss-disclosure-body">
+          <Field label="Cancellation deadline (optional)" hint="The last date to cancel before this charge. Some services require advance notice."><input type="date" className={fieldClass} max={draft.renewsOn} value={draft.cancellationDeadline ?? ''} onChange={(e) => change('cancellationDeadline', e.target.value || undefined)} /></Field>
+          <Field label="Calendar reminder" hint="Download the event from Renewals, then import it into your calendar. Your calendar controls notification delivery."><select className={fieldClass} value={draft.reminderDays ?? 3} onChange={(e) => change('reminderDays', Number(e.target.value))}>{reminderOptions.map((days) => <option key={days} value={days}>{days === 0 ? 'On the day' : `${days} ${days === 1 ? 'day' : 'days'} before`}</option>)}</select></Field>
+          <Field label="Subscription-management link (optional)"><input type="url" className={fieldClass} maxLength={1000} placeholder="https://example.com/account" value={draft.manageUrl ?? ''} onChange={(e) => change('manageUrl', e.target.value)} /></Field>
+        </div></details>
         <details className="ss-disclosure" open={service ? true : undefined}>
         <summary>Help me decide what to keep <span className="text-xs font-regular text-tertiary">(optional)</span></summary>
         <div className="ss-disclosure-body">
@@ -250,7 +267,7 @@ export function SubscriptionForm({
             onChange={(v) => change('status', v)}
           />
         )}
-        {draft.status === 'cancelled' && service?.status !== 'cancelled' && (
+        {(reducesCost || (draft.status === 'cancelled' && service?.status !== 'cancelled')) && (
           <label className="flex items-start gap-sm text-sm text-secondary">
             <input
               type="checkbox"
@@ -259,8 +276,7 @@ export function SubscriptionForm({
               checked={confirmed}
               onChange={(e) => setConfirmed(e.target.checked)}
             />
-            I have cancelled with the provider. SubSense does not cancel
-            subscriptions for me.
+            {draft.status === 'cancelled' ? 'I have cancelled with the provider.' : 'I have confirmed this pause or lower price with the provider.'} SubSense records the change; it does not make it for me.
           </label>
         )}
         {error && <Notice error>{error}</Notice>}
@@ -281,17 +297,23 @@ export function ReviewForm({
   sample,
   onSave,
   onClose,
+  onUsage,
+  onSnooze,
 }: {
   service: Subscription;
   recommendation: Recommendation;
   sample: boolean;
   onSave: (d: Decision) => boolean;
   onClose: () => void;
+  onUsage?: (usage: Subscription['usage']) => void;
+  onSnooze?: (date: string) => boolean;
 }) {
   const [action, setAction] = useState<Action>(recommendation.action);
   const [value, setValue] = useState<Value>('unsure');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const [snooze, setSnooze] = useState(addDays(today(), 3));
+  const previous = recommendation.evidence[0];
   function submit(e: FormEvent) {
     e.preventDefault();
     setError('');
@@ -335,7 +357,12 @@ export function ReviewForm({
               <li key={i}>{r}</li>
             ))}
           </ul>
+          {recommendation.action === 'cancel' && <p className="mt-lg text-sm font-medium">Cancelling could avoid {money(monthlyCents(service))} / month in future costs.</p>}
+          {recommendation.action === 'downgrade' && <p className="mt-lg text-sm text-secondary">Compare a cheaper plan in the budget planner to see the possible reduction.</p>}
+          {onUsage && <div className="mt-xl"><Choices label="Is your usage still accurate?" value={service.usage} onChange={onUsage} options={[{ value: 'frequent', label: 'Often' }, { value: 'occasional', label: 'Sometimes' }, { value: 'rare', label: 'Rarely' }, { value: 'unused', label: 'Never' }]} /></div>}
         </div>
+        {previous && <div className="space-y-lg border-b border-secondary pb-xl"><p className="text-sm font-medium">Last time, you said:</p><blockquote className="break-words text-sm text-secondary">“{previous.reason}”</blockquote><p className="text-xs text-tertiary">Is that still true? Your choice below will be saved as a new decision.</p><div className="flex flex-wrap items-center gap-md"><Button onClick={() => { setAction(previous.action); setValue(previous.value); setReason(previous.reason); }}>Still true</Button><Button onClick={() => { setAction('review'); setValue('unsure'); setReason(''); }}>Things changed</Button></div></div>}
+        {onSnooze && <details className="ss-disclosure"><summary>Remind me later</summary><div className="ss-disclosure-body"><Field label="Review again on" hint="Choose a future date. Appears in SubSense when you return. For notifications while the app is closed, use the calendar export."><input type="date" className={fieldClass} value={snooze} onChange={(e) => setSnooze(e.target.value)} /></Field><Button onClick={() => { if (!validDate(snooze) || snooze <= today()) setError('Choose a future review date.'); else if (onSnooze(snooze)) onClose(); }}>Snooze review</Button></div></details>}
         <Choices
           label="Your decision"
           value={action}

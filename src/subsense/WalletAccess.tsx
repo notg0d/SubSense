@@ -31,6 +31,8 @@ import { normalizeSuiAddress } from '../../shared/subsense.mjs';
 import { api, setApiWallet } from './api';
 import type { WalletSession } from './api';
 import { Brand, Button, Modal, Notice } from './ui';
+import LoginBackground from './LoginBackground';
+import LoginThemeToggle from './LoginThemeToggle';
 
 type Access = {
   session: WalletSession;
@@ -242,8 +244,9 @@ function WalletGate({ children }: { children: ReactNode }) {
       </AccessContext.Provider>
     );
   return (
-    <div className="min-h-screen bg-secondary p-lg text-primary md:p-3xl">
-      <main className="mx-auto grid min-h-screen max-w-7xl gap-2xl lg:min-h-0 lg:grid-cols-2">
+    <div className="ss-login-shell relative isolate min-h-screen bg-secondary p-lg text-primary md:p-3xl">
+      <LoginBackground paused={chooser || busy} />
+      <main className="relative z-10 mx-auto grid min-h-screen max-w-7xl gap-2xl lg:min-h-0 lg:grid-cols-2">
         <section className="ss-login-art hidden lg:flex">
           <div className="ss-orbit" aria-hidden="true" />
           <div className="relative z-10"><Brand inverse /></div>
@@ -261,8 +264,9 @@ function WalletGate({ children }: { children: ReactNode }) {
           </div>
           <p className="relative z-10 mt-auto text-xs ss-sidebar-muted">Your subscriptions. Your priorities. Your space.</p>
         </section>
-        <section className="flex flex-col justify-center rounded-4xl border border-secondary bg-primary px-2xl py-5xl md:px-7xl">
-          <div className="mx-auto w-full max-w-sm space-y-2xl">
+        <section className="relative flex flex-col justify-center rounded-4xl border border-secondary bg-primary px-2xl py-5xl md:px-7xl">
+          <div className="absolute right-xl top-xl z-10"><LoginThemeToggle /></div>
+          <div className="ss-login-content relative z-10 mx-auto w-full max-w-sm space-y-2xl">
           <div className="pb-xl lg:hidden"><Brand /></div>
           <span className="ss-stat-icon"><Wallet size={24} aria-hidden="true" /></span>
           <div>

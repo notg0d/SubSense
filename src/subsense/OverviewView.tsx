@@ -4,12 +4,14 @@ import type { Subscription, Workspace } from './workspace';
 import { dateLabel, money } from './workspace';
 import { actionLabels, actionTone } from './forms';
 import { Badge, Button, SectionHeading, ServiceAvatar } from './ui';
+import { BillTimeline, SavingsPanel } from './PlanningView';
+import { today } from './tracking';
 
 export default function OverviewView({ workspace, locked, onReview, onNavigate, onAdd }: {
   workspace: Workspace;
   locked: boolean;
   onReview: (service: Subscription) => void;
-  onNavigate: (view: 'subscriptions' | 'renewals' | 'journal' | 'settings') => void;
+  onNavigate: (view: 'subscriptions' | 'renewals' | 'journal' | 'settings' | 'planner') => void;
   onAdd: () => void;
 }) {
   const totals = summarize(workspace.subscriptions, workspace.budgetCents);
@@ -17,7 +19,7 @@ export default function OverviewView({ workspace, locked, onReview, onNavigate, 
   const ordered = [...active].sort((a, b) => a.renewsOn.localeCompare(b.renewsOn));
   const advice = (s: Subscription) => recommend(s, workspace.decisions, { overBudget: totals.headroom < 0 });
   const learned = active.filter((s) => advice(s).changed);
-  const candidates = active.filter((s) => advice(s).action !== 'keep');
+  const candidates = active.filter((s) => (!s.reviewAfter || s.reviewAfter <= today()) && advice(s).action !== 'keep');
   const due = active.filter((s) => daysUntil(s.renewsOn) >= 0 && daysUntil(s.renewsOn) <= 7);
   const overdue = active.filter((s) => daysUntil(s.renewsOn) < 0);
   const categories = [...new Set(active.map((s) => s.category))]
@@ -51,6 +53,7 @@ export default function OverviewView({ workspace, locked, onReview, onNavigate, 
             </div>
             <p className="mt-xl break-words text-heading-lg font-medium tracking-tight tabular-nums md:text-heading-xl">{money(totals.monthly)}<span className="ml-md text-sm font-regular ss-sidebar-muted">/ month</span></p>
             <p className="mt-sm text-xs ss-sidebar-muted">Yearly plans are spread over 12 months, so you can compare them fairly.</p>
+            {active.some((s) => s.trialEndsOn) && <p className="mt-sm text-xs ss-sidebar-muted">Includes future paid prices for your free trials.</p>}
             <div className="mt-3xl flex flex-wrap items-center justify-between gap-xl border-t ss-feature-divider pt-xl">
               <div><p className="text-xs ss-sidebar-muted">Estimated yearly cost</p><p className="mt-xs text-lg font-medium tabular-nums">{money(totals.annual)}</p></div>
               <button className="ss-feature-link" onClick={() => onNavigate('subscriptions')}>View subscriptions<ArrowUpRight size={17} aria-hidden="true" /></button>
@@ -109,6 +112,11 @@ export default function OverviewView({ workspace, locked, onReview, onNavigate, 
           <div className="space-y-lg">{chartCategories.length ? chartCategories.map((c, index) => <div key={c.name} className="flex items-center gap-md text-xs"><span className="ss-chart-dot" style={{ background: `var(--ss-chart-${index + 1})` }} aria-hidden="true" /><span className="min-w-0 flex-1 text-secondary">{c.name}</span><span className="font-medium tabular-nums">{money(c.amount)}</span></div>) : <p className="pb-lg text-center text-xs text-tertiary">Add an active subscription to see your breakdown.</p>}</div>
         </section>
       </div>
+
+      <section className="ss-panel p-3xl">
+        <SectionHeading title="Make room in your budget" description="Try a pause or a cheaper plan before committing." action={<Button onClick={() => onNavigate('planner')}>Open budget planner<ArrowRight size={16} aria-hidden="true" /></Button>} />
+      </section>
+      <div className="grid items-start gap-2xl xl:grid-cols-2"><BillTimeline subscriptions={workspace.subscriptions} compact /><SavingsPanel workspace={workspace} /></div>
 
       <section className="ss-panel p-3xl">
         <SectionHeading title="Better advice starts with you" description="Your past choices help us understand what matters." action={<Button variant="quiet" onClick={() => onNavigate('journal')}>Your decisions<ArrowUpRight size={16} aria-hidden="true" /></Button>} />
