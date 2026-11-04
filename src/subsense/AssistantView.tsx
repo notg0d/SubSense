@@ -7,7 +7,7 @@ import { money } from './workspace';
 import { validateSubscription } from '../../shared/subsense.mjs';
 import { useWalletAccess } from './WalletAccess';
 import { Choices } from './forms';
-import { Badge, Button, Field, Notice, SectionHeading, fieldClass } from './ui';
+import { Badge, Button, ExternalLink, Field, Notice, SectionHeading, fieldClass } from './ui';
 
 type Source = { id: string; label: string; kind: string };
 type AIResult = {
@@ -123,7 +123,7 @@ export default function AssistantView({ workspace, connections, locked, onBusy, 
               </span>
             </label>
             <p id="demo-privacy-hint" className="text-xs text-tertiary">
-              Leave this off for private data. Your OpenRouter account Privacy settings and guardrails still apply; this option cannot override them. Free-only pricing remains enforced.
+              Leave this off for private data. Your <ExternalLink href="https://openrouter.ai/settings/privacy">OpenRouter account Privacy settings</ExternalLink> and guardrails still apply; this option cannot override them. Free-only pricing remains enforced.
             </p>
           </div></details>
           <p className="text-sm font-semibold">3. Review & send</p>

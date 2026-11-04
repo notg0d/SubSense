@@ -1,6 +1,6 @@
 import { cloneElement, isValidElement, useEffect, useId, useRef } from 'react';
 import type { ReactNode, ButtonHTMLAttributes } from 'react';
-import { X, Info, Layers } from 'lucide-react';
+import { X, Info, Layers, ExternalLink as ExternalLinkIcon } from 'lucide-react';
 
 export function Brand({ inverse = false }: { inverse?: boolean }) {
   return (
@@ -29,6 +29,19 @@ export function Button({
     >
       {children}
     </button>
+  );
+}
+export function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex max-w-full items-center gap-xs rounded-xs text-brand-primary underline underline-offset-2 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+    >
+      <span>{children}<span className="sr-only"> (opens in a new tab)</span></span>
+      <ExternalLinkIcon size={12} className="shrink-0" aria-hidden="true" />
+    </a>
   );
 }
 const tones = {
@@ -62,7 +75,7 @@ export function Field({
 }: {
   label: string;
   children: ReactNode;
-  hint?: string;
+  hint?: ReactNode;
 }) {
   const hintId = useId();
   const fieldId = useId();

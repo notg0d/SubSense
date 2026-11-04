@@ -10,7 +10,7 @@ import { api, loadConnections, recallDecisions } from './api';
 import type { Connections, Verification } from './api';
 import type { Network } from '../../shared/subsense.mjs';
 import type { Workspace } from './workspace';
-import { Badge, Button, Field, Notice, SectionHeading, fieldClass } from './ui';
+import { Badge, Button, ExternalLink, Field, Notice, SectionHeading, fieldClass } from './ui';
 import CredentialsVault from './CredentialsVault';
 import { useWalletAccess } from './WalletAccess';
 
@@ -55,6 +55,7 @@ export default function ConnectionsView({
     network: Network;
   }>();
   const networkLabel = config?.networkLabel ?? 'Loading network…';
+  const explorerUrl = config?.network === 'testnet' ? 'https://testnet.suivision.xyz/' : 'https://suivision.xyz/';
   useEffect(() => {
     let active = true;
     loadConnections()
@@ -166,6 +167,11 @@ export default function ConnectionsView({
                 ? config?.tatumEndpoint
                 : config?.walrusEndpoint}
             </p>
+            <p className="mb-xl text-xs text-tertiary">
+              <ExternalLink href={provider === 'tatum' ? 'https://docs.tatum.io/' : 'https://docs.wal.app/walrus-memory/relayer/public-relayer'}>
+                {provider === 'tatum' ? 'Tatum API documentation' : 'Walrus Memory relayer documentation'}
+              </ExternalLink>. SubSense selects the endpoint automatically; no endpoint URL is needed during setup.
+            </p>
             <div className="mt-auto flex flex-wrap items-center justify-between gap-md border-t border-primary pt-xl">
               <span className="text-xs text-tertiary">Provider status</span>
               <Badge
@@ -245,6 +251,7 @@ export default function ConnectionsView({
             <Field label="Sui address">
               <input
                 className={fieldClass}
+                aria-describedby="sui-address-source-hint"
                 required
                 maxLength={66}
                 value={address}
@@ -269,6 +276,9 @@ export default function ConnectionsView({
              {busy === 'balance' ? 'Checking…' : 'Check balance'}
           </Button>
         </form>
+        <p id="sui-address-source-hint" className="text-xs text-tertiary">
+          Copy the public address from your Sui wallet, or look it up on <ExternalLink href={explorerUrl}>SuiVision explorer</ExternalLink>. Use the same network as this tool.
+        </p>
         {balance && (
           <Notice>
             {balance.amountSui} SUI ·{' '}
@@ -476,6 +486,9 @@ export default function ConnectionsView({
                     paidOn: 'Expected UTC payment date',
                   }[key]
                 }
+                hint={key === 'digest' ? <>
+                  Find the payment in your wallet’s transaction history or on <ExternalLink href={explorerUrl}>SuiVision transaction explorer</ExternalLink>. Copy the transaction digest, not the page URL, and check the network.
+                </> : undefined}
               >
                 <input
                   className={fieldClass}

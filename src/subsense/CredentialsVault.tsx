@@ -10,13 +10,14 @@ import {
   writeVault,
 } from './vault';
 import type { UserCredentials } from './vault';
-import { CHAT_MODELS, CHAT_MODEL_LABELS, DEFAULT_CHAT_MODEL } from '../../shared/ai.mjs';
+import { CHAT_MODELS, CHAT_MODEL_LABELS, DEFAULT_CHAT_MODEL, EMBEDDING_MODEL } from '../../shared/ai.mjs';
 import { Choices } from './forms';
 import { downloadBackup } from './workspace';
 import { useWalletAccess } from './WalletAccess';
 import {
   Badge,
   Button,
+  ExternalLink,
   Field,
   Modal,
   Notice,
@@ -183,22 +184,30 @@ export default function CredentialsVault({
         >
           {creating && (
             <div className="space-y-xl">
-              <Field label="OpenRouter API key (optional)" hint="For AI help. Skip this if you only want online memory.">
+              <Field label="OpenRouter API key (optional)" hint={<>
+                For AI help. Skip this if you only want online memory.{' '}
+                <ExternalLink href="https://openrouter.ai/settings/keys">Get an OpenRouter API key</ExternalLink> — sign in and create a key.
+              </>}>
                 <input className={fieldClass} type="password" autoComplete="off"
                   maxLength={512} value={credentials.openrouterKey ?? ''} disabled={busy}
                   placeholder="Paste your OpenRouter key"
                   onChange={(e) => setCredentials((v) => ({ ...v, openrouterKey: e.target.value }))} />
               </Field>
-              <p className="text-xs text-tertiary">Get a key from <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noreferrer" className="text-brand-primary underline focus-visible:ring-2 focus-visible:ring-focus-ring">OpenRouter</a>. We only use free models; free usage limits and availability still apply. Leave the online memory fields empty for AI-only setup.</p>
+              <p className="text-xs text-tertiary">We only use free models; free usage limits and availability still apply. Leave the online memory fields empty for AI-only setup. Review your <ExternalLink href="https://openrouter.ai/settings/privacy">OpenRouter privacy settings</ExternalLink> before sharing data; account restrictions still apply.</p>
               <details className="ss-disclosure"><summary>Choose a different AI model <span className="text-xs text-tertiary">(optional)</span></summary><div className="ss-disclosure-body">
                 <Choices label="Assistant model" disabled={busy} value={credentials.chatModel ?? DEFAULT_CHAT_MODEL}
                   options={CHAT_MODELS.map((model) => ({ value: model, label: CHAT_MODEL_LABELS[model] }))}
                   onChange={(chatModel) => setCredentials((v) => ({ ...v, chatModel }))} />
+                <p className="text-xs text-tertiary"><ExternalLink href={`https://openrouter.ai/${credentials.chatModel ?? DEFAULT_CHAT_MODEL}`}>View selected model details</ExternalLink> for capabilities, limits and provider information. Only the free models listed above can be used in SubSense.</p>
                 <p className="text-xs text-tertiary">Search uses free Nemotron 3.5 Embed 1B. Setup checks your key and available free models without sending an AI question.</p>
+                <p className="text-xs text-tertiary"><ExternalLink href={`https://openrouter.ai/${EMBEDDING_MODEL}`}>View search model details</ExternalLink></p>
               </div></details>
               <details className="ss-disclosure" open={feature === 'memory' ? true : undefined}><summary>Online memory connection <span className="text-xs text-tertiary">(advanced)</span></summary><div className="ss-disclosure-body grid gap-xl md:grid-cols-2">
               <p className="text-xs text-tertiary md:col-span-2">You need an existing Walrus Memory Mainnet account and registered delegate owned by your connected wallet. Fill in all three fields below. These are service credentials, not your wallet’s private key.</p>
-              <Field label="Tatum Mainnet API key">
+              <p className="text-xs text-tertiary md:col-span-2">New to online memory? Follow the <ExternalLink href="https://docs.wal.app/walrus-memory/sdk/quick-start#what-configuration-does-the-sdk-need">Walrus Memory setup guide</ExternalLink>. Use Mainnet and connect the same owner wallet you use in SubSense. Account creation and delegate registration may require SUI gas; SubSense does not perform them for you.</p>
+              <Field label="Tatum Mainnet API key" hint={<>
+                <ExternalLink href="https://dashboard.tatum.io/api-keys">Get a Tatum API key</ExternalLink> from your dashboard’s API Keys page. Choose a Mainnet key with Sui GraphQL access, not a Testnet key. See the <ExternalLink href="https://docs.tatum.io/docs/compromised-auth-api-keys">API key setup guide</ExternalLink> for account requirements.
+              </>}>
                 <input
                   className={fieldClass}
                   type="password"
@@ -211,7 +220,9 @@ export default function CredentialsVault({
                   }
                 />
               </Field>
-              <Field label="MemWal delegate private key">
+              <Field label="MemWal delegate private key" hint={<>
+                <ExternalLink href="https://memory.walrus.xyz/">Open Walrus Memory Mainnet</ExternalLink> to generate a delegate key for your account. Follow the <ExternalLink href="https://docs.wal.app/walrus-memory/contract/delegate-key-management">delegate key guide</ExternalLink> to register its public key. Paste only the delegate private key here, never your owner wallet key or recovery phrase.
+              </>}>
                 <input
                   className={fieldClass}
                   type="password"
@@ -225,7 +236,9 @@ export default function CredentialsVault({
                 />
               </Field>
               <div className="md:col-span-2">
-                <Field label="MemWal Mainnet account object ID">
+                <Field label="MemWal Mainnet account object ID" hint={<>
+                  <ExternalLink href="https://memory.walrus.xyz/">Get your Walrus Memory account ID</ExternalLink> — connect the same owner wallet, then create or open your Mainnet account. Copy its account object ID, not a wallet address, package ID or registry ID.
+                </>}>
                   <input
                     className={fieldClass}
                     required={blockchain}
