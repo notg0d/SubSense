@@ -41,6 +41,7 @@ import ConnectionsView from './ConnectionsView';
 import type { Commit } from './ConnectionsView';
 import SettingsView from './SettingsView';
 import OverviewView from './OverviewView';
+import HomeConnections from './HomeConnections';
 import AssistantView from './AssistantView';
 import ImportSubscriptions from './ImportSubscriptions';
 import PlanningView, { BillTimeline } from './PlanningView';
@@ -615,6 +616,7 @@ export default function SubSenseApp() {
           )}
           {error && <Notice error>{error}</Notice>}
           {message && <Notice>{message}</Notice>}
+          {view === 'overview' && <HomeConnections busy={busy} onBusy={setBusy} onConfig={setConnections} />}
           {view === 'overview' && <><BackupStatus compact workspace={workspace} commit={commit} locked={Boolean(warning) || busy} /><RenewalActions workspace={workspace} commit={commit} locked={Boolean(warning) || busy} onEdit={setEditing} onReview={setReviewing} /></>}
           {view === 'overview' && (
             <OverviewView

@@ -45,6 +45,7 @@ export default function AssistantView({ workspace, connections, locked, onBusy, 
       .map((d) => ({ id: `decision:${d.id}`, label: d.serviceName, detail: `${d.action} · ${d.at.slice(0, 10)}`, content: d.reason })),
   ];
   const activeIds = new Set(records.filter((r) => selected.has(r.id)).map((r) => r.id));
+  const bulkIds = records.slice(0, 100).map((r) => r.id);
   const ready = Boolean(connections?.aiConfigured);
   const disabled = busy || locked || workspace.sample;
   async function submit() {
@@ -90,11 +91,18 @@ export default function AssistantView({ workspace, connections, locked, onBusy, 
           <div className="space-y-lg border-t border-secondary pt-xl">
             <div className="flex flex-wrap items-center justify-between gap-lg">
               <h2 className="text-sm font-semibold">2. Choose what to share · {activeIds.size} / 100</h2>
-              <Button disabled={disabled || !selected.size} onClick={() => { setSelected(new Set()); resetConsent(); }}>Clear selection</Button>
+              <div className="flex flex-wrap items-center gap-md">
+                <Button disabled={disabled || !bulkIds.length || bulkIds.every((id) => activeIds.has(id))}
+                  onClick={() => { setSelected(new Set(bulkIds)); resetConsent(); setResult(undefined); }}>
+                  {records.length > 100 ? 'Select first 100' : 'Select all'}
+                </Button>
+                <Button disabled={disabled || !selected.size} onClick={() => { setSelected(new Set()); resetConsent(); }}>Clear selection</Button>
+              </div>
             </div>
             <p className="text-xs text-tertiary">
               Only the subscriptions and decisions you select are shared, including their names, prices, dates, usage, importance, notes and reasons. Advice also includes your {money(workspace.budgetCents)} budget. Your wallet address, keys and payment records are never included.
             </p>
+            {records.length > 100 && <p className="text-xs text-tertiary">You can share up to 100 records per request. Select first 100 follows the list order.</p>}
             {records.length ? <div className="max-h-80 overflow-y-auto divide-y divide-secondary">
               {records.map((record) => <label key={record.id} className="flex cursor-pointer items-start gap-lg py-lg">
                 <input type="checkbox" className="mt-xxs size-4 shrink-0 rounded-xs border border-primary bg-primary focus-visible:ring-2 focus-visible:ring-focus-ring"

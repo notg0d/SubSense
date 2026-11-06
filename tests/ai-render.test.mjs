@@ -33,6 +33,22 @@ test('AI screens render with consent off, no automatic requests and no sample-lo
     assert.match(html, /Strict default/); assert.match(html, /cannot override/);
     assert.match(html, /aria-describedby="demo-privacy-hint"/);
     assert.match(html, /<button[^>]*disabled=""[^>]*>[\s\S]*?Ask assistant/);
+    assert.match(html, /<button[^>]*disabled=""[^>]*>Select all<\/button>/);
+    workspace.subscriptions = [{ id: 'service', name: 'Subscription to share', category: 'Other', costCents: 1000,
+      cadence: 'monthly', usage: 'frequent', importance: 'useful', status: 'active', renewsOn: '2027-01-01', workRelated: false, notes: '' }];
+    const populated = renderToString(createElement(module.Assistant, { workspace, onBusy() {}, onConnections() {}, locked: false }));
+    assert.match(populated, /<button[^>]*>Select all<\/button>/);
+    assert.doesNotMatch(populated, /<button[^>]*disabled=""[^>]*>Select all<\/button>/);
+    assert.doesNotMatch(populated, /type="checkbox"[^>]*checked/);
+    for (const props of [{ locked: true }, { workspace: { ...workspace, sample: true } }]) {
+      const disabled = renderToString(createElement(module.Assistant, { workspace, onBusy() {}, onConnections() {}, locked: false, ...props }));
+      assert.match(disabled, /<button[^>]*disabled=""[^>]*>Select all<\/button>/);
+    }
+    const large = renderToString(createElement(module.Assistant, { workspace: { ...workspace,
+      subscriptions: Array.from({ length: 101 }, (_, index) => ({ ...workspace.subscriptions[0], id: `service-${index}` })) },
+      onBusy() {}, onConnections() {}, locked: false }));
+    assert.match(large, /Select first 100/);
+    assert.match(large, /You can share up to 100 records per request/);
     const vault = renderToString(createElement(module.Vault, { onChanged: async () => {}, onBusy() {} }));
     assert.match(vault, /OpenRouter API key \(optional\)/); assert.match(vault, /AI-only setup/);
     assert.doesNotMatch(vault + html, /OpenAI|gpt-4|text-embedding-3-small/);

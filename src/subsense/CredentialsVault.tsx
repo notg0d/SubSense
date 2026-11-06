@@ -29,10 +29,12 @@ export default function CredentialsVault({
   onChanged,
   onBusy,
   feature = 'ai',
+  unlockOnly = false,
 }: {
   onChanged: () => Promise<void>;
   onBusy: (busy: boolean) => void;
   feature?: 'ai' | 'memory';
+  unlockOnly?: boolean;
 }) {
   const { session, refresh, lock } = useWalletAccess();
   const wallet = session.walletAddress!;
@@ -124,8 +126,10 @@ export default function CredentialsVault({
     await onChanged();
     setMessage(result.note);
   }
+  if (unlockOnly && !saved && !hasConnection) return <Notice>No saved connection keys were found on this device. Set them up in Optional features first.</Notice>;
   return (
-    <section className="ss-panel space-y-xl p-3xl">
+    <section className={unlockOnly ? 'space-y-xl' : 'ss-panel space-y-xl p-3xl'}>
+      {!unlockOnly && <>
       <SectionHeading
         title="Your connection keys"
         description="Password-protected on this device"
@@ -142,6 +146,7 @@ export default function CredentialsVault({
       <p className="text-sm text-tertiary">
         Connection keys let SubSense use these optional services. A separate password protects them in this browser. Never enter your wallet recovery phrase or owner private key.
       </p>
+      </>}
       {error && <Notice error>{error}</Notice>}
       {message && <Notice>{message}</Notice>}
       {hasConnection && !editing && !restored ? (
@@ -258,7 +263,7 @@ export default function CredentialsVault({
               </div></details>
             </div>
           )}
-          <div className="grid gap-xl md:grid-cols-2">
+          <div className={`grid gap-xl ${unlockOnly ? '' : 'md:grid-cols-2'}`}>
             <Field
               label={
                  creating ? 'Create a connection password' : 'Your connection password'
@@ -271,6 +276,7 @@ export default function CredentialsVault({
                 minLength={12}
                 maxLength={256}
                 autoComplete={creating ? 'new-password' : 'current-password'}
+                disabled={busy}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -291,7 +297,7 @@ export default function CredentialsVault({
             )}
           </div>
           <p className="text-xs text-tertiary">
-            Choose a unique password with at least 12 characters and keep it safe — we can’t recover it. Your password stays in this browser. Connecting securely sends the service keys to the app’s server, not the password (local development may use HTTP).
+            {unlockOnly ? 'Your password stays in this browser. Unlocking sends your saved service keys to the app’s server, not your password. Never enter your wallet recovery phrase or owner private key.' : 'Choose a unique password with at least 12 characters and keep it safe — we can’t recover it. Your password stays in this browser. Connecting securely sends the service keys to the app’s server, not the password (local development may use HTTP).'}
           </p>
           <div className="flex flex-wrap gap-lg">
             <Button type="submit" variant="primary" disabled={busy}>
@@ -324,7 +330,7 @@ export default function CredentialsVault({
           </div>
         </form>
       )}
-      <details className="ss-disclosure"><summary>Backups & connection security</summary><div className="ss-disclosure-body">
+      {!unlockOnly && <details className="ss-disclosure"><summary>Backups & connection security</summary><div className="ss-disclosure-body">
         <div className="flex flex-wrap gap-lg">
           {saved && (
             <>
@@ -411,7 +417,7 @@ export default function CredentialsVault({
           on Mainnet by the connected owner wallet. Those on-chain actions can
           require SUI gas; this app will not perform them automatically.
         </p>
-      </div></details>
+      </div></details>}
       {deleting && (
         <Modal
           title="Forget this saved credential vault?"
