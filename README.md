@@ -3,7 +3,7 @@
 <h1 align="center">SubSense</h1>
 <p align="center"><strong>A little clarity. Every month.</strong><br />Subscription decisions that remember what matters to you.</p>
 <p align="center">Tatum × Walrus · Total Recall 2026 · Consumer Finance Apps</p>
-<p align="center"><a href="docs/GUIDE.md">Product guide</a> · <a href="docs/SETUP.md">Setup & recovery</a> · <a href="docs/BLOG.md">Dev.to article</a> · <a href="docs/RELEASE.md">Verification status</a></p>
+<p align="center"><a href="docs/GUIDE.md">Product guide</a> · <a href="docs/SETUP.md">Setup & recovery</a>  · <a href="docs/RELEASE.md">Verification status</a></p>
 
 ![SubSense dashboard with subscription spending, budget headroom and upcoming renewals](docs/assets/dashboard.png)
 *Actual application screenshot with synthetic demonstration data. Screenshots are not evidence of live provider access or Mainnet writes.*
