@@ -45,6 +45,10 @@ try {
   assert.ok(!html.includes('/@vite/client'));
   const asset = html.match(/src="([^"]+\.js)"/)[1];
   assert.equal((await fetch(root + asset)).status, 200);
+  const robots = await fetch(root + '/robots.txt');
+  assert.equal(robots.status, 200);
+  assert.match(robots.headers.get('content-type'), /^text\/plain/);
+  assert.equal((await robots.text()).trim(), 'User-agent: *\nDisallow: /api/');
   const config = await fetch(root + '/api/subsense/config');
   assert.equal(config.status, 200);
   assert.equal(config.headers.get('cache-control'), 'no-store');

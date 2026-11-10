@@ -153,6 +153,20 @@ test('API rejects wallet switches before sending keys and ignores stale response
     };
     // There is no window in this Node test: a stale response must not dispatch expiry.
     await assert.rejects(api('/auth/session'), /No result was applied/);
+    // Returning to A must not resurrect a response from A's previous session.
+    setApiWallet('0x3');
+    globalThis.fetch = async () => {
+      setApiWallet('0x4');
+      setApiWallet('0x3');
+      return new Response(JSON.stringify({ message: 'old session expired' }), { status: 401 });
+    };
+    await assert.rejects(api('/auth/session'), /No result was applied/);
+    globalThis.fetch = async () => {
+      // Ordinary React rerenders with the same wallet do not invalidate requests.
+      setApiWallet('0x3');
+      return new Response(JSON.stringify({ authenticated: true, network: 'mainnet' }));
+    };
+    assert.equal((await api('/auth/session')).authenticated, true);
   } finally {
     globalThis.fetch = originalFetch;
     setApiWallet('');

@@ -35,6 +35,7 @@ test('new users land on Home without provider setup or technical status chrome',
     assert.match(html, /Add your first subscription/);
     assert.match(html, /Your monthly spending/);
     assert.match(html, /aria-label="Mobile navigation"/);
+    assert.match(html, /aria-label="ME — My account, wallet Test wallet"/);
     assert.doesNotMatch(html, /Mainnet|GraphQL|blobs|INFRASTRUCTURE|Tatum Mainnet API key/);
     assert.match(html, /Saved on this device/);
   } finally {

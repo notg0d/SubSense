@@ -2,6 +2,7 @@ import {
   validateDecision,
   validDate,
   memoryReceipts,
+  normalizeSuiAddress,
 } from '../../shared/subsense.mjs';
 import type {
   Decision,
@@ -157,7 +158,10 @@ export function validateWorkspace(value: unknown, imported = false): Workspace {
   };
 }
 
-const workspaceKey = (wallet?: string) => (wallet ? `${KEY}:${wallet}` : KEY);
+// Match the vault/login identity: padded, short and mixed-case Sui addresses
+// must all reopen the same workspace and its original recall namespace.
+const workspaceKey = (wallet?: string) =>
+  wallet ? `${KEY}:${normalizeSuiAddress(wallet)}` : KEY;
 export function readWorkspace(wallet?: string): {
   workspace: Workspace;
   warning?: string;

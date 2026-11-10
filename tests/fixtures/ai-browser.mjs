@@ -13,24 +13,37 @@ const seed = Array.from({ length: 32 }, (_, i) => 160 + i);
 const bundle = await build({ stdin: { contents: `
   import { registerWallet } from '@mysten/wallet-standard';
   import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-  const pair = Ed25519Keypair.fromSecretKey(new Uint8Array(${JSON.stringify(seed)}));
-  const account = { address: pair.getPublicKey().toSuiAddress(), publicKey: pair.getPublicKey().toRawBytes(),
-    chains: ['sui:mainnet'], features: ['sui:signPersonalMessage'] };
+  const pairs = [${JSON.stringify(seed)}, ${JSON.stringify(seed.map((n) => n - 32))}]
+    .map(seed => Ed25519Keypair.fromSecretKey(new Uint8Array(seed)));
+  const accounts = pairs.map(pair => ({ address: pair.getPublicKey().toSuiAddress(), publicKey: pair.getPublicKey().toRawBytes(),
+    chains: ['sui:mainnet'], features: ['sui:signPersonalMessage'] }));
+  let selected = 0;
   let connected = false;
   const listeners = new Set();
   const wallet = { version: '1.0.0', name: 'SubSense generated TEST wallet',
     icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=',
-    chains: ['sui:mainnet'], get accounts() { return connected ? [account] : []; },
+    chains: ['sui:mainnet'], get accounts() { return connected ? [accounts[selected]] : []; },
     features: {
       'standard:connect': { version: '1.0.0', connect: async () => { connected = true;
-        for (const fn of listeners) fn({ accounts: [account] }); return { accounts: [account] }; } },
+        for (const fn of listeners) fn({ accounts: [accounts[selected]] }); return { accounts: [accounts[selected]] }; } },
       'standard:disconnect': { version: '1.0.0', disconnect: async () => { connected = false;
         for (const fn of listeners) fn({ accounts: [] }); } },
       'standard:events': { version: '1.0.0', on: (_event, fn) => { listeners.add(fn); return () => listeners.delete(fn); } },
-      'sui:signPersonalMessage': { version: '1.1.0', signPersonalMessage: async ({ message }) => pair.signPersonalMessage(message) },
+      'sui:signPersonalMessage': { version: '1.1.0', signPersonalMessage: async ({ message, account }) => {
+        const index = accounts.findIndex(a => a.address === account.address);
+        if (index < 0) throw new Error('Unknown test account');
+        return pairs[index].signPersonalMessage(message);
+      } },
     }
   };
   registerWallet(wallet);
+  // Browser QA only. This script and its known unfunded seeds are never served
+  // by server/index.mjs or included in the production bundle.
+  window.__subsenseTest = { addresses: accounts.map(a => a.address), selectWallet(index) {
+    if (index !== 0 && index !== 1) throw new Error('Choose test wallet 0 or 1');
+    selected = index;
+    for (const fn of listeners) fn({ accounts: connected ? [accounts[selected]] : [] });
+  } };
 `, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', platform: 'browser' });
 const stats = { inference: 0, verify: 0, modes: [], contextCounts: [], dataCollections: [] };
 const store = createSessionStore();

@@ -554,7 +554,7 @@ export default function SubSenseApp() {
               <LogOut size={18} className="shrink-0" aria-hidden="true" />
               <span className="hidden sm:inline">Sign out</span>
             </Button>
-            <button className="flex size-10 shrink-0 items-center justify-center rounded-full border border-primary bg-primary text-xs font-semibold text-brand-primary focus-visible:ring-2 focus-visible:ring-focus-ring" aria-label={`My account, wallet ${shortWallet(wallet)}`} onClick={() => navigate('settings')} disabled={busy}>ME</button>
+            <button className="flex size-10 shrink-0 items-center justify-center rounded-full border border-primary bg-primary text-xs font-semibold text-brand-primary focus-visible:ring-2 focus-visible:ring-focus-ring" aria-label={`ME — My account, wallet ${shortWallet(wallet)}`} onClick={() => navigate('settings')} disabled={busy}>ME</button>
           </div>
         </header>
         <main

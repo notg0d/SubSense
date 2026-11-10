@@ -1,19 +1,34 @@
-# SubSense
+<p align="center"><img src="public/subsense-mark.svg" width="64" height="64" alt="SubSense logo" /></p>
 
-Subscription renewal decisions with context. Built for freelancers and creators
-for the Tatum × Walrus Total Recall hackathon (Consumer Finance Apps).
+<h1 align="center">SubSense</h1>
+<p align="center"><strong>A little clarity. Every month.</strong><br />Subscription decisions that remember what matters to you.</p>
+<p align="center">Tatum × Walrus · Total Recall 2026 · Consumer Finance Apps</p>
+<p align="center"><a href="docs/GUIDE.md">Product guide</a> · <a href="docs/SETUP.md">Setup & recovery</a> · <a href="docs/BLOG.md">Dev.to article</a> · <a href="docs/RELEASE.md">Verification status</a></p>
 
-SubSense tracks manually entered subscriptions, calculates recurring USD
-commitments, and remembers why you kept, downgraded, or planned to cancel a
-service. A deterministic recommendation engine compares usage-only advice with
-your latest applicable feedback. Sign in with a Sui wallet, unlock your encrypted
-credential vault, and optionally connect your own MemWal Mainnet account and OpenRouter
-API key. AI can explain decisions, plan renewals and semantically search selected
-context. No bank connection, automatic cancellation, or autonomous payment is involved.
+![SubSense dashboard with subscription spending, budget headroom and upcoming renewals](docs/assets/dashboard.png)
+*Actual application screenshot with synthetic demonstration data. Screenshots are not evidence of live provider access or Mainnet writes.*
 
-## Run locally
+## Why SubSense
 
-Use **Node.js 24 LTS** (required for the TypeScript workspace tests) and npm.
+A rarely used subscription can still be essential. SubSense helps freelancers and creators see what is renewing, understand recurring costs, and remember **why** they kept or reconsidered a service.
+
+The learning loop is explainable: a rarely used design tool initially gets cheaper-plan advice; a saved reason such as “required for client handoffs” changes it to keep. A price increase above 10% triggers a fresh review rather than repeating old advice blindly.
+
+| Capability | What it does |
+| --- | --- |
+| Subscription tracking | Manual entry or reviewed CSV imports, monthly/annual plans, trials and renewal dates |
+| Budget planning | USD commitments, upcoming full charges, temporary pause/downgrade previews |
+| Contextual decisions | Keep, reconsider or plan to cancel; previous reasons inform the next recommendation |
+| Wallet-specific recovery | Reopen the matching browser workspace and encrypted provider vault after signed login |
+| Walrus Memory | Explicitly save selected decisions and recall relevant context from Mainnet |
+| Tatum Sui reads | Read native SUI balances and verify existing transaction evidence; never send funds |
+| Optional AI | Explain, plan and search selected context through allowlisted free OpenRouter models |
+
+**You stay in control.** SubSense does not connect to a bank, cancel services, execute payments or autonomously change your budget. Decisions are notes; confirm billing changes with the provider before recording them.
+
+## Quick start
+
+Requirements: **Node.js 24 LTS**, npm and a Sui Mainnet-compatible wallet such as Slush.
 
 ```sh
 npm ci
@@ -21,273 +36,65 @@ npm run setup:mainnet
 npm run dev
 ```
 
-Open **http://localhost:3000**. Express and Vite share one process and one port.
-Connect a Sui Mainnet wallet and sign the one-time personal login message. This is
-not a transaction and costs no gas. Home opens first; add a subscription without
-any provider setup. **Optional features** offers AI help and online memory setup.
-New workspaces start empty; sample loading has been removed. Existing saved data
-is preserved; **Settings → Start my own workspace** explicitly replaces it after
-confirmation. Browser storage is the only local
-persistence; export a backup before clearing browser data.
+Open **http://localhost:3000**, connect your wallet and approve **Confirm sign-in**. The personal message costs no gas and does not authorize spending. Home opens with an empty workspace; tracking works without provider credentials.
+
+For optional online memory or AI, follow [Setup & recovery](docs/SETUP.md). The setup script creates `.env` only when absent and never replaces existing credentials.
+
+### Verify and serve a public demo
 
 ```sh
 npm run check
-```
-
-Runs TypeScript checking, domain/integration/workspace/network-isolation tests, a production
-build, and an isolated production HTTP smoke test. Tests use mocks or local HTTP
-servers, not live blockchain requests or uploads.
-
-For built-asset serving:
-
-```sh
 npm run build
 npm start
 ```
 
-The same Express entry point serves `dist/` and `/api/subsense/*` on port 3000.
-Unlike `npm run dev`, this does not expose Vite development filesystem/editor
-routes. Set `PORT` in the server environment if needed. The original AI Builder
-preview continues using the inline Vite middleware configuration.
+`check` runs typechecking, automated tests, a production build and an isolated HTTP smoke test. Public deployments must set `SUBSENSE_PUBLIC_ORIGIN` to their exact HTTPS origin and serve built assets, not Vite development routes. Express and the frontend share one process and port 3000.
 
-## Navigation and appearance
+## Product tour
 
-Use **Collapse sidebar** below the desktop logo to switch to an icon rail. Hover
-over it or focus its controls with the keyboard to reveal the labels temporarily.
-Choose **Keep expanded** to pin it open again. The compact preference is remembered
-in this browser, and temporary expansion overlays the page without shifting it.
-On mobile, use the bottom navigation and **More** menu.
+![Renewal recommendations showing the user's previous decision context](docs/assets/renewals.png)
+*Renewals explain their reasoning and surface your saved context. All illustrated records are synthetic.*
 
-The SubSense mark appears in the header and browser tab. Sidebar, page, dialog,
-control and chart transitions respect the device's reduced-motion preference.
-The login background has a dense, wide, theme-colored particle ripple behind
-both opaque login cards. It follows mouse movement, then blends into a gently
-drifting, breathing standby animation when the pointer rests or leaves the
-window. It pauses behind the wallet chooser and in hidden tabs; touch devices
-and reduced-motion users get a still field. Dark is the default. The login
-card's sun/moon switch remembers the device's light/dark preference and shares
-it with the dashboard.
+Use [the product guide](docs/GUIDE.md) for subscriptions, CSV imports, trial deadlines, calendar exports, follow-ups, budgets and backups. Both themes and responsive navigation are supported; motion respects reduced-motion preferences.
 
-## Everyday subscription tools
+## Architecture
 
-- **Faster entry:** service-name suggestions fill a category and account link,
-  never a price. **Subscriptions → Import CSV** provides a template, validates
-  every row, shows duplicate names, and requires review before adding records.
-  CSV imports are additive, limited to 200 subscriptions in total, and processed
-  in the browser. Required headers: `name,price,cadence,renewsOn`; prices are USD,
-  cadence is `monthly` or `annual`, and dates use `YYYY-MM-DD`.
-- **Trials and deadlines:** mark a free trial, enter its first paid charge date
-  and future price, and optionally add a cancellation deadline. Budgets include
-  future paid prices. Confirm a trial's first renewal to clear its trial marker.
-- **Calendar reminders:** choose an alert interval in the subscription form and
-  export `.ics` events from Renewals. Import the file into your calendar and check
-  its notification settings. These are one-time events, not background browser
-  notifications or a synced feed. Export again after updating renewal dates and
-  remove obsolete calendar events when dates change. Past dates are skipped.
-- **Follow-through:** “Plan to cancel” and “Cheaper plan” create local follow-ups
-  in Home and Renewals. Open the saved provider-account link, then record the
-  confirmed change in Edit. A saved decision alone does not change billing status.
-- **Actual upcoming bills:** Home and Renewals show the next 30 calendar days of
-  expected charges, including full annual bills and first paid trial charges.
-  Stale past renewal dates must be updated before they can be forecast.
-- **Budget planner:** preview pauses and lower prices without changing saved
-  subscriptions. “Review & record” opens the normal edit form with the proposed
-  change; recording a reduction requires confirmation from the user. The preview
-  is temporary and clears when leaving the page or recording a change.
-- **Cost reductions:** confirmed recurring reductions are measured against the
-  price before a confirmed pause, cancellation or downgrade. They are not cash
-  saved to date; resuming or increasing a plan reduces that figure. Cancelling a
-  free trial does not count as a confirmed saving. Potential future costs avoided
-  are shown separately and cover services suggested for cancellation only.
-- **Contextual reviews:** reuse your previous reason with “Still true,” revise it
-  with “Things changed,” correct usage in place, or snooze the review to a future
-  date. Snoozes surface in the app on return, not as background notifications.
-- **Backup status:** Settings records the last backup download request. A gentle
-  Home reminder appears after five changes, or when a changed backup is over 30
-  days old, and can be snoozed for a week. Check that the downloaded file was saved.
-  Restoring a backup resets this device's download history.
+```text
+React + TypeScript
+  ├─ wallet-scoped workspace → browser storage / exported backup
+  ├─ encrypted provider vault → browser Web Crypto
+  └─ same-origin /api/subsense/*
+       Express: verified wallet session + isolated in-memory credentials
+         ├─ Tatum → Mainnet Sui GraphQL reads
+         ├─ MemWal SDK → explicit Mainnet decision save / recall
+         └─ OpenRouter → consented free-model advice / embeddings
+```
 
-These tools use wallet-scoped browser storage and exported files. Trial details,
-management links, reminders, savings baselines and follow-ups stay out of AI and
-Walrus decision payloads. Online decision memory is not a full workspace backup.
+| Directory | Responsibility |
+| --- | --- |
+| `src/subsense/` | Product UI, browser workspace, encrypted vault and API client |
+| `shared/` | Validation, deterministic recommendations and financial calculations |
+| `server/` | Single Express entry point, wallet authentication and provider adapters |
+| `tests/` | Domain, security, integration, rendering and recovery regressions |
+| `docs/` | User guide, setup, Dev.to article draft and current release evidence |
 
-## Wallet login and Mainnet connections
+## Privacy and storage
 
-Wallet login is required. Local subscription tracking works after sign-in even
-without provider credentials. **All new provider operations are Mainnet only.**
-Follow [the Mainnet setup and verification guide](docs/MAINNET.md).
+- Workspace notes are **unencrypted browser-local data**, scoped to the signed-in wallet. Wallet scoping is not protection from someone or a script with access to your browser.
+- Provider keys are stored as AES-256-GCM ciphertext, bound to wallet and Mainnet identity. The vault password never leaves the browser. Unlocked keys are sent to this app's backend for a 30-minute in-memory session.
+- Sign-out, lock, expiry and server restart clear backend credentials, **not** saved browser workspaces or vaults. Reconnecting requires the same wallet, origin, browser profile and vault password.
+- Export **workspace and encrypted-vault backups separately**. A new device needs both backups; Walrus decision memory is not a full workspace backup. Preserve the workspace profile ID to recover its remote namespace.
+- Uploads require confirmation. The relayer processes decision plaintext before encrypted storage; AI receives only the question and selected, validated context. Never share secrets or private client details in public demonstrations.
+- The AI Builder preview has no database or durable runtime storage. `/tmp` is ephemeral, and the served project directory is read-only.
 
-1. Connect the Sui wallet that owns your **Mainnet MemWal account** and sign in.
-2. In Connections enter your Mainnet Tatum API key, MemWal account object ID, and
-   an already registered **Ed25519 delegate** private key. Never enter your wallet
-   seed phrase or owner wallet private key.
-3. Set a separate, strong vault password (at least 12 characters). The app checks
-   account ownership, deployment, activation, delegate registration and signed
-   metadata access, then saves only encrypted ciphertext in this browser.
-4. Lock providers or sign out when finished. Reconnect with the vault password;
-   it is not sent to the server and cannot be recovered. Export an encrypted vault
-   backup separately from your workspace backup.
+## Submission and release status
 
-| Variable                                           | Purpose                                                                             |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `SUBSENSE_NETWORK`                                 | `mainnet` (default); wallet server rejects other networks                           |
-| `SUBSENSE_PUBLIC_ORIGIN`                           | Exact app origin, default `http://localhost:3000`; HTTPS required outside localhost |
-| `TATUM_API_KEY`, `MEMWAL_KEY`, `MEMWAL_ACCOUNT_ID` | Optional server-only diagnostic credentials, **never reused by wallet sessions**    |
+**Recommended track: 03 — Consumer Finance Apps.** The [official Total Recall brief](https://tatum.io/hackathon/total-recall) explicitly includes subscription managers with learned spend limits. Consult the official brief for current submission requirements and awards; use [the Dev.to article draft](docs/BLOG.md) to explain the project.
 
-`npm run setup:mainnet` creates `.env` only if absent; it never overwrites existing
-credentials. Set the exact public origin before hosting or using a different local
-port/hostname, then restart. No trailing slash/path is allowed. POST origins must
-match exactly. **Never use `VITE_*` variables for secrets or commit credentials.**
-Old Testnet credentials do not become Mainnet credentials by changing a setting.
+Local automated verification passes. **Live owner-wallet compatibility, authenticated Mainnet Tatum reads, Walrus write/recall, 10+ completed memories and hosted deployment are not certified by these tests.** Record your real evidence before claiming eligibility. [Release status](docs/RELEASE.md) separates verified behavior from remaining owner tasks and dependency findings.
 
-`npm run test:connections` identifies wallet mode and directs you to the browser;
-it cannot access your HttpOnly login cookie. `npm run diagnose:walrus` is a
-separate read-only diagnostic using local `.env`, not your browser vault/session.
+## Attribution
 
-### Walrus Memory
+SubSense began from a friend's SpendGuard scaffold. Preserve that provenance and confirm the original author's reuse permission, preferred attribution and applicable licence before publishing. No permission or licence grant is invented here.
 
-1. Use your own Mainnet Walrus Memory account and authorised delegate.
-   See [SDK usage](https://docs.wal.app/walrus-memory/sdk/usage/memwal) and
-   [public relayer](https://docs.wal.app/walrus-memory/relayer/public-relayer).
-2. Start a non-sample workspace; save a renewal decision with a meaningful reason.
-3. In the journal, choose **Upload to Walrus**, review the privacy notice, and
-   explicitly confirm. One click submits one decision; there is no batch or
-   automatic upload.
-4. An accepted job is **pending**, not stored. Use **Check upload status** until
-   the SDK returns `done` and a `blob_id`.
-5. Recall relevant decisions in Connections. Validated records enter the same
-   learning engine. Different workspace profile IDs use different namespaces.
-
-If a request times out, recall before retrying. Submission uses a profile-scoped
-idempotency key based on the decision ID. Keep a reported recovery job ID if the
-browser cannot save its receipt. Relayer health proves reachability only, not
-delegate/account access or completed writes. Semantic recall returns at most 50
-relevant results; it is not an exhaustive memory inventory.
-
-### Tatum Sui payment evidence
-
-Connections can verify an **existing** native SUI transaction for a manually
-selected service. It checks the exact transaction digest, execution success,
-complete balance changes, recipient's exact net SUI increase, UTC payment date,
-and optional sender. Amounts use integer MIST rather than floating point.
-
-Connections also offers a read-only native SUI balance check once the vault is
-connected. The server uses Mainnet's HTTP GraphQL interface advertised by Tatum gateway
-discovery. Its query was checked against the installed Sui GraphQL schema and
-tested with mocked responses; **authenticated live compatibility remains
-unverified**. Missing data, pagination, errors, and mismatches fail closed.
-Verification is not proof that a vendor recognised a bill. Replay detection is
-limited to this browser workspace. USD budgeting is separate from native SUI
-payment evidence. No funds are sent.
-
-### Free AI assistant and semantic search
-
-Add an [OpenRouter API key](https://openrouter.ai/settings/keys) in Connections (use **Replace credentials** for an existing
-vault, re-entering all credentials you want to retain). The key is encrypted in
-the same vault, never stored in workspace backups or reused from `.env`. You can
-leave all Mainnet provider fields empty for AI-only setup; wallet sign-in is still
-required. Setup checks `/api/v1/key`, `/api/v1/models` and `/api/v1/embeddings/models`, without inference.
-
-In **AI assistant**, choose Ask, Explain, Plan renewals or Semantic search, select
-up to 100 records, enter a question and confirm consent for each request. Only
-selected validated subscription/decision context goes to OpenRouter and its model provider. AI advice also
-includes the planning budget and deterministic totals/rules for the selected
-subset. Recall MemWal decisions explicitly in Connections to make them selectable.
-Wallet addresses, keys, payment evidence and remote receipts are not AI context.
-
-The backend uses pinned `https://openrouter.ai/api/v1/chat/completions` with
-validated, tool-free JSON output; embeddings use `nvidia/nemotron-3.5-embed-1b:free`.
-Default chat: `nvidia/nemotron-3.5-super-vl:free`; alternatives are
-`recursive/flint-v1.0:free` and `xingchen-agi/xing4.0-29b-a4b:free`.
-Only allowlisted `:free` models are accepted. Paid/model/provider fallbacks,
-plugins, tools, retries and automatic requests are disabled; all upstream prices
-are capped at zero. Setup fails if catalog pricing is no longer zero.
-Each session allows one AI request at a time and up to 12 per minute. Embeddings
-are cached in that wallet session only and cleared on lock/sign-out/expiry. AI
-results/chat are not persisted. Budget rules are unchanged and work without AI.
-
-Free quotas, model availability and key permissions still apply. Privacy routing
-defaults to `data_collection:deny`, which can exclude all available free endpoints.
-For **synthetic demo data only**, the assistant offers an unchecked, per-request
-opt-in permitting providers that may retain or train on the submitted data. It
-resets after each request or context change and never enables paid fallbacks.
-OpenRouter account Privacy settings/guardrails can still block these requests;
-the app cannot override them. Provider policies apply; zero retention is not promised.
-Similarity and source references are not verified proof. Advice can be wrong and
-never changes subscriptions or performs payments. Live authenticated inference
-has not been verified with a real user key; automated tests use mocks.
-Older provider vaults are preserved but require explicit credential replacement;
-their keys are never forwarded to OpenRouter. See [AI setup](docs/AI.md).
-
-## Product and privacy boundaries
-
-- Prices, usage, provider status, and renewal dates are entered by the user.
-  Paused/cancelled services do not count toward active commitments. Record
-  cancellation only after confirming it with the provider.
-- A decision does not change the service's status, date, price, or budget.
-  User-declared essential protection is never silently removed. Latest matching
-  service feedback applies for 180 days; a monthly-equivalent price increase over
-  10% prompts a fresh review. Future/unrelated records are ignored.
-- Subscriptions, decisions, preferences, and evidence are wallet-scoped browser-local
-  data, **not encrypted**. A wallet scope is not protection against other people or
-  scripts with access to the same browser. The
-  preview has no durable runtime filesystem or database. `/tmp` is ephemeral.
-- Corrupt saved data is not overwritten automatically. Settings offers raw
-  recovery export and explicit replacement. Imports preserve the profile ID but
-  strip Testnet/Mainnet receipts and payment evidence; recall/reverification must restore
-  remote provenance. Backups contain sensitive financial notes: keep them private.
-- Explicit memory uploads send service, price, decision, and rationale to the
-  relayer. It processes plaintext for embedding/encryption; stored blobs are
-  encrypted. Do not upload secrets or private client details. Use synthetic data
-  for public demonstrations.
-- Credential vaults use AES-256-GCM with PBKDF2-SHA-256 (600,000 iterations), fresh
-  salt/IV, and wallet/network-bound authentication. Only ciphertext is persisted.
-  Unlocking sends provider keys to the app backend over HTTPS (localhost may use
-  HTTP) for a 30-minute in-memory session. The vault password never leaves the
-  browser. Encryption protects keys at rest, not against malicious scripts or
-  extensions while unlocked. There is no password recovery or cross-device sync.
-- Wallet personal-message signatures authenticate short-lived HttpOnly,
-  SameSite=Strict sessions (Secure on HTTPS). Per-user keys/clients are isolated;
-  lock, logout, expiry and server restart remove backend credentials. This has
-  regression coverage, not an independent production security audit.
-- Historical Testnet receipts keep their original label and never count as
-  Mainnet evidence. Settings can explicitly import the old browser workspace;
-  the original legacy storage is not modified.
-
-## Verification and release status
-
-See [verification notes](docs/VERIFICATION.md) and
-[demo/submission checklist](docs/DEMO.md).
-
-The UI is inspired by [Goodface’s Emerald24 web and mobile case study](https://www.behance.net/gallery/256834293/Neobank-web-mobile-app-UXUI-design-Emerald24):
-an emerald sidebar, soft neutral surfaces, rounded panels and progressive disclosure.
-SubSense’s own brand aliases layer over the unchanged Tatum geometry tokens.
-Home prioritises spending, budget and renewals; technical connection and receipt
-details live in optional/advanced sections. Forms use plain language, and mobile
-has labelled bottom navigation. No reference artwork or Emerald24 branding is copied.
-
-Local functionality is implemented and tested. A historical Tatum Testnet health
-query succeeded, but authenticated Mainnet wallet/provider access, live Mainnet
-write/recall, hosted deployment, and hackathon submission remain unverified.
-Sample decisions never count toward Mainnet eligibility. The UI counts
-unique locally confirmed blob IDs, not an account-wide total.
-
-`npm audit` currently reports **4 vulnerabilities (3 moderate, 1 high)** in the
-inherited Vite/esbuild and Express/qs dependency trees. Non-breaking audit fixes
-were applied; no forced major upgrades were made. Serve built assets for public
-demos, keep development private, and resolve remaining dependency findings before
-production release. The API uses JSON-only bodies, a simple query parser, a 32 KB
-body limit, wallet-signed sessions, origin checks, fixed upstream URLs, and secret redaction;
-these are not substitutes for dependency maintenance.
-
-## Reference attribution
-
-This repository began from the friend's SpendGuard scaffold. The unused reference
-UI, service adapters and unmounted mock/proxy routes were removed during cleanup.
-The app retains the original project's provenance; removing unused source does
-not remove the obligation to confirm reuse permission and provide attribution.
-
-**Before publishing:** confirm the original author's reuse permission, add their
-preferred name/link and licence attribution, and verify third-party licence
-requirements. SubSense's domain engine, workspace, UI flows, and integration
-adapters are new work; the reference is not represented as genuine Mainnet proof.
+Visual direction was inspired by [Goodface's Emerald24 case study](https://www.behance.net/gallery/256834293/Neobank-web-mobile-app-UXUI-design-Emerald24); its artwork and branding are not included. SubSense's own mark and brand aliases sit over the supplied Tatum geometry tokens. Managed `.claude/skills/`, `.mcp.json` and `AGENTS.md` are retained as project tooling.

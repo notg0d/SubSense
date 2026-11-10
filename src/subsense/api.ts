@@ -35,7 +35,9 @@ export interface Verification {
   provider?: string;
 }
 let walletAddress = '';
+let walletGeneration = 0;
 export function setApiWallet(address: string) {
+  if (address !== walletAddress) walletGeneration++;
   walletAddress = address;
 }
 export interface WalletSession {
@@ -53,6 +55,7 @@ export async function api<T>(
   options: { wallet?: string; signal?: AbortSignal } = {},
 ): Promise<T> {
   const expected = options.wallet ?? walletAddress;
+  const generation = walletGeneration;
   if (expected !== walletAddress)
     throw new Error('Wallet changed. Retry with the current wallet.');
   options.signal?.throwIfAborted();
@@ -69,7 +72,7 @@ export async function api<T>(
       : AbortSignal.timeout(60000),
   });
   const result = await response.json();
-  if (expected !== walletAddress)
+  if (expected !== walletAddress || generation !== walletGeneration)
     throw new Error(
       'Wallet changed during the request. No result was applied.',
     );

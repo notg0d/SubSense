@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { normalizeSuiAddress, recommend } from '../shared/subsense.mjs';
+import { sampleWorkspace } from './fixtures/sample-workspace.mjs';
 import {
   encryptVault,
   decryptVault,
@@ -13,6 +15,7 @@ import {
   readWorkspace,
   saveWorkspace,
   freshWorkspace,
+  validateWorkspace,
 } from '../src/subsense/workspace.ts';
 
 const credentials = {
@@ -102,8 +105,53 @@ test('wallet-scoped browser vaults and workspaces are separate and legacy storag
     saveWorkspace(b, '0x4');
     assert.equal(readWorkspace('0x3').workspace.profileId, a.profileId);
     assert.equal(readWorkspace('0x4').workspace.profileId, b.profileId);
+    assert.equal(readWorkspace(normalizeSuiAddress('0x3')).workspace.profileId, a.profileId);
     assert.equal(JSON.parse(rawBackup()).profileId, legacy.profileId);
     assert.ok(!rawBackup('0x3').includes('encrypted-a'));
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+    else delete globalThis.localStorage;
+  }
+});
+
+test('reconnecting equivalent wallet addresses restores encrypted keys and prior decision context without crossing wallets', async () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const data = new Map();
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key) => data.get(key) ?? null,
+      setItem: (key, value) => data.set(key, value),
+      removeItem: (key) => data.delete(key),
+    },
+  });
+  try {
+    const wallet = '0xAbC';
+    const canonical = normalizeSuiAddress(wallet);
+    const workspace = validateWorkspace(sampleWorkspace());
+    workspace.sample = false;
+    workspace.decisions[0].demo = false;
+    const encrypted = await encryptVault(wallet, password, credentials);
+    writeVault(wallet, encrypted);
+    saveWorkspace(workspace, wallet);
+    for (const address of [wallet, '0xabc', canonical]) {
+      const restored = readWorkspace(address);
+      assert.equal(restored.warning, undefined);
+      assert.equal(restored.workspace.profileId, workspace.profileId);
+      assert.deepEqual(restored.workspace.decisions, workspace.decisions);
+      assert.deepEqual(
+        recommend(restored.workspace.subscriptions[0], restored.workspace.decisions),
+        recommend(workspace.subscriptions[0], workspace.decisions),
+      );
+      assert.equal(readVault(address), encrypted);
+      assert.equal((await decryptVault(address, password, readVault(address))).tatumKey, credentials.tatumKey);
+      assert.equal(JSON.parse(rawBackup(address)).profileId, workspace.profileId);
+    }
+    assert.equal(readVault('0xdef'), null);
+    assert.deepEqual(readWorkspace('0xdef').workspace.decisions, []);
+    assert.equal(data.size, 2);
+    await assert.rejects(decryptVault('0xdef', password, encrypted), /could not be unlocked/);
+    assert.equal(readVault(wallet), encrypted);
   } finally {
     if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
     else delete globalThis.localStorage;
