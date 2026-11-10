@@ -87,11 +87,6 @@ React + TypeScript
 - Uploads require confirmation. The relayer processes decision plaintext before encrypted storage; AI receives only the question and selected, validated context. Never share secrets or private client details in public demonstrations.
 - The AI Builder preview has no database or durable runtime storage. `/tmp` is ephemeral, and the served project directory is read-only.
 
-## Submission and release status
-
-**Recommended track: 03 — Consumer Finance Apps.** The [official Total Recall brief](https://tatum.io/hackathon/total-recall) explicitly includes subscription managers with learned spend limits. Consult the official brief for current submission requirements and awards; use [the Dev.to article draft](docs/BLOG.md) to explain the project.
-
-Local automated verification passes. **Live owner-wallet compatibility, authenticated Mainnet Tatum reads, Walrus write/recall, 10+ completed memories and hosted deployment are not certified by these tests.** Record your real evidence before claiming eligibility. [Release status](docs/RELEASE.md) separates verified behavior from remaining owner tasks and dependency findings.
 
 ## Attribution
 
