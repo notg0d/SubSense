@@ -91,6 +91,15 @@ Only the question and selected validated context are shared with OpenRouter and 
 
 Limits: 100 records, 1,000-character questions, 12 requests/minute and one in-flight AI request per wallet session. Embedding cache is session-local and bounded to 300 vectors. Lock, logout, expiry or restart clears it and backend keys.
 
+AI generation and embedding requests wait up to 120 seconds for free-provider
+queues or cold starts. Key and model-catalog checks retain their 45-second limit.
+The browser allows 135 seconds for `/ai/run` so it can receive the server's
+timeout response; other API requests retain their 60-second limit. Longer waits
+do not guarantee provider availability, and requests never retry or switch models
+automatically. After a timeout, try fewer records, a shorter question, or manually
+choose another supported free model. Preserve/export an existing vault and
+re-enter all credentials you want to retain when changing connection keys.
+
 ### Privacy controls
 
 Strict routing uses `data_collection:deny`. Some free models have no endpoint satisfying this policy. No automatic privacy fallback is made, and zero retention is not promised.
@@ -134,6 +143,7 @@ An origin has no trailing slash, path or embedded credentials. POST origins must
 | AI `PRIVACY_BLOCKED` | Keep strict privacy, or explicitly opt in for synthetic data only after reviewing provider/account policies |
 | AI `KEY_REJECTED` / `ACCESS_BLOCKED` / `ACCOUNT_LIMIT` | Check active key, model permissions, quotas and guardrails; do not add credits to bypass a free-only app error |
 | AI `FREE_QUOTA` / provider unavailable | Inspect usage and retry later manually; failed requests may consume quota |
+| AI request timeout | Restart/redeploy the current server and frontend for the 120-second inference allowance; try fewer records, a shorter question or another supported free model manually |
 | AI output/context rejection | Reduce context or try another supported chat model; no tools or paid fallback are enabled |
 
 `npm run diagnose:walrus` is a read-only owner-run check using optional `.env` diagnostic credentials, not your browser vault. `npm run test:connections` identifies wallet mode; it cannot access your HttpOnly login cookie. Share only sanitized errors, never keys, passwords or private notes.

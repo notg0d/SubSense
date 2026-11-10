@@ -6,6 +6,11 @@ export const CHAT_MODEL_LABELS = {
   'xingchen-agi/xing4.0-29b-a4b:free': 'Xing4.0 29B A4B · free',
 };
 export const EMBEDDING_MODEL = 'nvidia/nemotron-3.5-embed-1b:free';
+// Free inference can queue or cold-start. Leave the browser time to receive the
+// server's bounded timeout response; ordinary API and catalog limits stay short.
+export const AI_INFERENCE_TIMEOUT_MS = 120000;
+export const AI_METADATA_TIMEOUT_MS = 45000;
+export const AI_CLIENT_TIMEOUT_MS = AI_INFERENCE_TIMEOUT_MS + 15000;
 export const LEGACY_AI_MESSAGE = 'This vault uses a retired AI provider. Export it first, then use Replace credentials with an OpenRouter key and re-enter every credential you want to retain. The saved vault was not changed.';
 
 export function validateAI(input) {

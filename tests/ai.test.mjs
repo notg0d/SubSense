@@ -4,7 +4,7 @@ import { once } from 'node:events';
 import express from 'express';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { openRouterRequest, verifyOpenRouter, validateAIInput, runAI } from '../server/subsense-ai.mjs';
-import { DEFAULT_CHAT_MODEL, CHAT_MODELS, EMBEDDING_MODEL } from '../shared/ai.mjs';
+import { DEFAULT_CHAT_MODEL, CHAT_MODELS, EMBEDDING_MODEL, AI_INFERENCE_TIMEOUT_MS, AI_METADATA_TIMEOUT_MS } from '../shared/ai.mjs';
 import { createWalletRouter } from '../server/routes/wallet.mjs';
 import { createSessionStore, SESSION_COOKIE } from '../server/subsense-sessions.mjs';
 import { credentialGuard } from '../server/credential-guard.mjs';
@@ -245,6 +245,64 @@ test('privacy errors after demo opt-in explain that account policies cannot be o
     return true;
   });
   assert.equal(calls, 1);
+});
+
+test('free inference gets a bounded two-minute deadline while metadata retains 45 seconds', async (t) => {
+  const deadlines = [];
+  t.mock.method(AbortSignal, 'timeout', (ms) => {
+    deadlines.push(ms);
+    return new AbortController().signal;
+  });
+  let calls = 0;
+  for (const path of ['key', 'models', 'embeddings/models', 'chat/completions', 'embeddings']) {
+    const inference = ['chat/completions', 'embeddings'].includes(path);
+    await openRouterRequest(path, credentials.openrouterKey, inference ? {
+      model: path === 'embeddings' ? EMBEDDING_MODEL : DEFAULT_CHAT_MODEL,
+    } : undefined, {
+      fetcher: async (_url, options) => {
+        calls++;
+        assert.equal(options.redirect, 'error');
+        if (inference) {
+          const sent = JSON.parse(options.body);
+          assert.equal(sent.provider.allow_fallbacks, false);
+          assert.equal(sent.provider.data_collection, 'deny');
+          assert.deepEqual(sent.provider.max_price, { prompt: '0', completion: '0', request: '0', image: '0' });
+        }
+        return new Response('{}');
+      },
+    });
+  }
+  assert.equal(calls, 5);
+  assert.equal(AI_INFERENCE_TIMEOUT_MS, 120000);
+  assert.equal(AI_METADATA_TIMEOUT_MS, 45000);
+  assert.deepEqual(deadlines, [45000, 45000, 45000, 120000, 120000]);
+});
+
+test('expired AI deadlines remain bounded, identify their actual limit and never retry', async (t) => {
+  let deadline;
+  t.mock.method(AbortSignal, 'timeout', () => {
+    deadline = new AbortController();
+    return deadline.signal;
+  });
+  for (const [path, seconds] of [['chat/completions', 120], ['embeddings', 120], ['models', 45]]) {
+    let calls = 0;
+    await assert.rejects(openRouterRequest(path, credentials.openrouterKey, path === 'models' ? undefined : {
+      model: path === 'embeddings' ? EMBEDDING_MODEL : DEFAULT_CHAT_MODEL,
+    }, {
+      signal: new AbortController().signal,
+      fetcher: async (_url, options) => {
+        calls++;
+        deadline.abort(new DOMException(credentials.openrouterKey, 'TimeoutError'));
+        options.signal.throwIfAborted();
+      },
+    }), (error) => {
+      assert.match(error.message, new RegExp(`timed out after ${seconds} seconds`));
+      assert.match(error.message, /no automatic retry or paid fallback/);
+      assert.ok(!error.message.includes(credentials.openrouterKey));
+      return true;
+    });
+    assert.equal(calls, 1);
+  }
 });
 
 test('transport cancellation and timeout errors never disclose abort reasons or retry', async () => {

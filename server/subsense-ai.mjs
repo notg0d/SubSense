@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { DEFAULT_CHAT_MODEL, EMBEDDING_MODEL, CHAT_MODELS } from '../shared/ai.mjs';
+import { DEFAULT_CHAT_MODEL, EMBEDDING_MODEL, CHAT_MODELS, AI_INFERENCE_TIMEOUT_MS, AI_METADATA_TIMEOUT_MS } from '../shared/ai.mjs';
 import { validateSubscription, validateDecision, text, summarize, recommend } from '../shared/subsense.mjs';
 
 export class AIError extends Error {
@@ -102,7 +102,9 @@ export async function openRouterRequest(path, key, body, { fetcher = fetch, sign
   if (inference && ['models', 'plugins', 'tools', 'route'].some((field) => body[field] !== undefined))
     throw new AIError('Fallback models, plugins and tools are disabled.', 400);
   if (!inference && body !== undefined) throw new AIError('Invalid AI operation.', 400);
-  const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(45000)]) : AbortSignal.timeout(45000);
+  const timeoutMs = inference ? AI_INFERENCE_TIMEOUT_MS : AI_METADATA_TIMEOUT_MS;
+  const deadlineSignal = AbortSignal.timeout(timeoutMs);
+  const requestSignal = signal ? AbortSignal.any([signal, deadlineSignal]) : deadlineSignal;
   try {
     requestSignal.throwIfAborted();
     const response = await fetcher(`https://openrouter.ai/api/v1/${path}`, {
@@ -124,8 +126,10 @@ export async function openRouterRequest(path, key, body, { fetcher = fetch, sign
     return result;
   } catch (error) {
     if (error instanceof AIError) throw error;
+    if (deadlineSignal.aborted && deadlineSignal.reason?.name === 'TimeoutError')
+      throw new AIError(`AI ${inference ? 'request' : 'connection check'} timed out after ${timeoutMs / 1000} seconds. Try later${inference ? ' or manually choose another supported free model in Connections' : ''}; no automatic retry or paid fallback was made.`);
     if (requestSignal.aborted && requestSignal.reason?.name === 'TimeoutError')
-      throw new AIError('AI request timed out after 45 seconds. Try later; no automatic retry or paid fallback was made.');
+      throw new AIError('AI request timed out before completion. Try later; no automatic retry or paid fallback was made.');
     throw new AIError('AI request interrupted or unavailable. No automatic retry or paid fallback was made.');
   }
 }

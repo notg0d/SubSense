@@ -1,5 +1,6 @@
 import type { Decision } from './workspace';
 import type { Network } from '../../shared/subsense.mjs';
+import { AI_CLIENT_TIMEOUT_MS } from '../../shared/ai.mjs';
 export interface Connections {
   tatumConfigured: boolean;
   walrusConfigured: boolean;
@@ -59,6 +60,7 @@ export async function api<T>(
   if (expected !== walletAddress)
     throw new Error('Wallet changed. Retry with the current wallet.');
   options.signal?.throwIfAborted();
+  const timeoutMs = path === '/ai/run' ? AI_CLIENT_TIMEOUT_MS : 60000;
   const response = await fetch(`/api/subsense${path}`, {
     credentials: 'same-origin',
     method: body === undefined ? 'GET' : 'POST',
@@ -68,8 +70,8 @@ export async function api<T>(
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: options.signal
-      ? AbortSignal.any([options.signal, AbortSignal.timeout(60000)])
-      : AbortSignal.timeout(60000),
+      ? AbortSignal.any([options.signal, AbortSignal.timeout(timeoutMs)])
+      : AbortSignal.timeout(timeoutMs),
   });
   const result = await response.json();
   if (expected !== walletAddress || generation !== walletGeneration)
